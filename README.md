@@ -18,7 +18,7 @@ sudo apt-get install -y libsecret-1-dev
 ## Quickstart
 
 ```sh
-mmm init        # add an account (IMAP + SMTP, app password)
+mmm init        # add an account (Gmail via OAuth, or any IMAP server)
 mmm list        # show 20 most recent messages in INBOX
 mmm read 1234   # read message with UID 1234
 mmm send -t a@example.com -s "hi" -b "hello"
@@ -26,7 +26,7 @@ mmm reply 1234 -b "thanks"
 mmm search "invoice"
 ```
 
-Account metadata lives in `~/.config/mmmail/config.json` (mode 0600). Passwords and OAuth refresh tokens are stored in your OS keychain via [keytar](https://www.npmjs.com/package/keytar) — they never touch the config file.
+Account metadata lives in `~/.config/mmmail/config.json` (mode 0600). Passwords, OAuth client secrets, and OAuth refresh tokens are stored in your OS keychain via [@napi-rs/keyring](https://www.npmjs.com/package/@napi-rs/keyring) — they never touch the config file.
 
 ## Providers
 
@@ -39,18 +39,19 @@ Account metadata lives in `~/.config/mmmail/config.json` (mode 0600). Passwords 
 
 ### Google setup (one-time, ~3 min)
 
-`mmm` uses **your own** Google OAuth client. Google's `https://mail.google.com/` scope is restricted, so a shared client isn't possible — but `mmm init` walks you through the setup and opens each URL for you.
+`mmm` uses **your own** Google OAuth client. Google's `https://mail.google.com/` scope is restricted, so a shared client isn't possible — but `mmm init` walks you through the setup. URLs are printed as clickable links.
 
 You'll do this once per machine. Subsequent Gmail accounts skip the setup and only run the consent flow.
 
-1. Create or pick a Google Cloud project — https://console.cloud.google.com/projectcreate
+1. Create a Google Cloud project (or skip if you already have one) — https://console.cloud.google.com/projectcreate
 2. Enable the Gmail API — https://console.cloud.google.com/apis/library/gmail.googleapis.com
 3. Configure the OAuth consent screen — https://console.cloud.google.com/auth/overview
-   - User type: **External**
-   - Add your Gmail address as a **Test user** (Audience tab)
-4. Create OAuth credentials — https://console.cloud.google.com/auth/clients
-   - Type: **Desktop app**
-5. Copy the **Client ID** and **Client secret** from the dialog and paste them when `mmm init` asks
+   - Audience: **External**
+4. Add yourself as a test user — https://console.cloud.google.com/auth/audience
+   - Under the *Audience* tab, scroll to *Test users* and add your Gmail address
+5. Create OAuth credentials — https://console.cloud.google.com/auth/clients
+   - *+ Create Client* → Application type: **Desktop app**
+6. Copy the **Client ID** and **Client secret** from the dialog and paste them when `mmm init` asks
 
 Your app stays in **testing mode** (no Google verification needed) — that's fine for personal use. Up to 100 test users can authorize.
 
@@ -75,7 +76,8 @@ Every command takes `-a, --account <email>` to override the default account.
 git clone https://github.com/0xmmo/mmmail
 cd mmmail
 npm install
-npm run dev        # tsup --watch
+npm run cli -- list --limit 5   # run the CLI directly from TS via tsx
+npm run watch                   # tsup --watch (rebuilds dist/ on change)
 npm run typecheck
 npm test
 npm run build
@@ -99,7 +101,7 @@ This requires npm Trusted Publishing configured (or an `NPM_TOKEN` repo secret a
 ```sh
 npm login
 npm run build
-npm publish --access public
+npm publish    # publishConfig.access=public is set, no flag needed
 ```
 
 ## License
