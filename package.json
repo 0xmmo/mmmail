@@ -1,5 +1,5 @@
 {
-  "name": "mmmail",
+  "name": "@0xmmo/mmmail",
   "version": "0.1.0",
   "description": "CLI mail client for Gmail, Outlook, and IMAP",
   "type": "module",

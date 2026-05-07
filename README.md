@@ -5,7 +5,7 @@ A small CLI mail client. Stateless commands — list, read, send, reply, search 
 ## Install
 
 ```sh
-npm install -g mmmail
+npm install -g @0xmmo/mmmail
 ```
 
 Requires Node.js ≥ 20. On Linux you may also need `libsecret` for keychain support:
