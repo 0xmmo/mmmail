@@ -1,5 +1,4 @@
 import { confirm, input, password, select } from "@inquirer/prompts";
-import open from "open";
 import pc from "picocolors";
 import {
   upsertAccount,
@@ -143,7 +142,7 @@ async function runGoogleInit(): Promise<void> {
     });
     await setProviderSecret("google", "oauth-client-id", clientId);
     await setProviderSecret("google", "oauth-client-secret", clientSecret);
-    console.log(pc.dim("  Saved Google OAuth client credentials. They'll be reused for additional Gmail accounts."));
+    console.log(pc.dim("  Saved Google OAuth client credentials. They can be reused for additional future Gmail accounts."));
   } else {
     console.log(
       pc.dim(
@@ -152,8 +151,12 @@ async function runGoogleInit(): Promise<void> {
     );
   }
 
+  console.log("");
+  console.log(pc.green("  ✓ Google OAuth client setup"));
+  console.log("");
+
   const email = await input({
-    message: "Gmail address",
+    message: "What is your Gmail address?",
     validate: (v) => /.+@.+\..+/.test(v) || "Enter a valid email",
   });
 
@@ -178,13 +181,14 @@ async function runGoogleInit(): Promise<void> {
 async function walkGoogleCloudSetup(): Promise<void> {
   console.log("");
   console.log(
-    pc.bold("  mmmail uses your own Google OAuth client. ~3 min one-time setup."),
+    pc.bold("  mmmail will setup your own private local Google OAuth client (~3 min)"),
   );
   console.log("");
   const steps: { title: string; url?: string; detail?: string }[] = [
     {
-      title: "Create or select a Google Cloud project",
+      title: "Create a Google Cloud project (or skip if you already have one)",
       url: "https://console.cloud.google.com/projectcreate",
+      detail: "Name it (e.g. 'mmmail') and click Create.",
     },
     {
       title: "Enable the Gmail API",
@@ -195,13 +199,19 @@ async function walkGoogleCloudSetup(): Promise<void> {
       title: "Configure OAuth consent screen",
       url: "https://console.cloud.google.com/auth/overview",
       detail:
-        "User type: External. Add your Gmail address as a Test user (Audience tab).",
+        "Choose a name and Audience: External. Add your Gmail address for support & contact.",
+    },
+    {
+      title: "Add yourself as a test user",
+      url: "https://console.cloud.google.com/auth/audience",
+      detail:
+        "Under the Audience tab, scroll to 'Test users' and add your Gmail address.",
     },
     {
       title: "Create OAuth credentials (Desktop app)",
       url: "https://console.cloud.google.com/auth/clients",
       detail:
-        "Click '+ Create Client' → Application type: Desktop app. Name it anything.",
+        "Click '+ Create Client' → Application type: Desktop app. Name it and don't close the dialog!",
     },
     {
       title: "Copy the Client ID + Client secret from the dialog",
@@ -215,17 +225,6 @@ async function walkGoogleCloudSetup(): Promise<void> {
   }
   console.log("");
 
-  const openAll = await confirm({
-    message: "Open these URLs in your browser now?",
-    default: true,
-  });
-  if (openAll) {
-    for (const step of steps) {
-      if (step.url) {
-        await open(step.url).catch(() => undefined);
-      }
-    }
-  }
   await confirm({
     message: "Press enter when you have your Client ID and secret ready",
     default: true,
