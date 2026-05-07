@@ -1,11 +1,11 @@
-# cmail
+# mmmail
 
-A small CLI mail client. Stateless commands — list, read, send, reply, search — over IMAP/SMTP, with OAuth for Gmail and Outlook on the roadmap.
+A small CLI mail client. Stateless commands — list, read, send, reply, search — over IMAP/SMTP, with OAuth for Gmail and Outlook on the roadmap. Installs the `mmm` binary.
 
 ## Install
 
 ```sh
-npm install -g cmail
+npm install -g mmmail
 ```
 
 Requires Node.js ≥ 20. On Linux you may also need `libsecret` for keychain support:
@@ -18,15 +18,15 @@ sudo apt-get install -y libsecret-1-dev
 ## Quickstart
 
 ```sh
-cmail init        # add an account (IMAP + SMTP, app password)
-cmail list        # show 20 most recent messages in INBOX
-cmail read 1234   # read message with UID 1234
-cmail send -t a@example.com -s "hi" -b "hello"
-cmail reply 1234 -b "thanks"
-cmail search "invoice"
+mmm init        # add an account (IMAP + SMTP, app password)
+mmm list        # show 20 most recent messages in INBOX
+mmm read 1234   # read message with UID 1234
+mmm send -t a@example.com -s "hi" -b "hello"
+mmm reply 1234 -b "thanks"
+mmm search "invoice"
 ```
 
-Account metadata lives in `~/.config/cmail/config.json` (mode 0600). Passwords and OAuth refresh tokens are stored in your OS keychain via [keytar](https://www.npmjs.com/package/keytar) — they never touch the config file.
+Account metadata lives in `~/.config/mmmail/config.json` (mode 0600). Passwords and OAuth refresh tokens are stored in your OS keychain via [keytar](https://www.npmjs.com/package/keytar) — they never touch the config file.
 
 ## Providers
 
@@ -42,14 +42,14 @@ For Gmail and Outlook today, use **app passwords** with the generic IMAP path. N
 ## Commands
 
 ```
-cmail init                          add a mail account
-cmail accounts                      list configured accounts
-cmail remove <email>                remove an account
-cmail list [-f INBOX] [-n 20] [-u]  list messages
-cmail read <uid>                    read a single message
-cmail send -t to -s subject [-b]    send a message ('-' = stdin, omit = $EDITOR)
-cmail reply <uid> [-b body] [--all] reply (or reply-all)
-cmail search <query>                full-text search
+mmm init                          add a mail account
+mmm accounts                      list configured accounts
+mmm remove <email>                remove an account
+mmm list [-f INBOX] [-n 20] [-u]  list messages
+mmm read <uid>                    read a single message
+mmm send -t to -s subject [-b]    send a message ('-' = stdin, omit = $EDITOR)
+mmm reply <uid> [-b body] [--all] reply (or reply-all)
+mmm search <query>                full-text search
 ```
 
 Every command takes `-a, --account <email>` to override the default account.
@@ -57,8 +57,8 @@ Every command takes `-a, --account <email>` to override the default account.
 ## Development
 
 ```sh
-git clone https://github.com/0xmmo/cmail
-cd cmail
+git clone https://github.com/0xmmo/mmmail
+cd mmmail
 npm install
 npm run dev        # tsup --watch
 npm run typecheck
@@ -77,7 +77,7 @@ npm version patch  # creates commit + tag
 git push --follow-tags
 ```
 
-This requires an `NPM_TOKEN` repository secret (Settings → Secrets → Actions).
+This requires npm Trusted Publishing configured (or an `NPM_TOKEN` repo secret as fallback).
 
 **Manual:**
 

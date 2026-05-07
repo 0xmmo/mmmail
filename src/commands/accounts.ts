@@ -6,7 +6,7 @@ export async function listAccounts(): Promise<void> {
   const cfg = await readConfig();
   const entries = Object.values(cfg.accounts);
   if (entries.length === 0) {
-    console.log(pc.dim("No accounts. Run `cmail init`."));
+    console.log(pc.dim("No accounts. Run `mmm init`."));
     return;
   }
   for (const a of entries) {

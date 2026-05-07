@@ -25,8 +25,8 @@ export interface CmailConfig {
 
 const CONFIG_DIR =
   process.env.XDG_CONFIG_HOME
-    ? join(process.env.XDG_CONFIG_HOME, "cmail")
-    : join(homedir(), ".config", "cmail");
+    ? join(process.env.XDG_CONFIG_HOME, "mmmail")
+    : join(homedir(), ".config", "mmmail");
 const CONFIG_PATH = join(CONFIG_DIR, "config.json");
 
 const EMPTY: CmailConfig = { accounts: {} };

@@ -106,5 +106,5 @@ export async function runInit(): Promise<void> {
   await upsertAccount(account);
 
   console.log(pc.green(`✓ Saved account ${email}`));
-  console.log(pc.dim(`  Try: cmail list`));
+  console.log(pc.dim(`  Try: mmm list`));
 }

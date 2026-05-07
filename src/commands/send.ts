@@ -18,7 +18,7 @@ interface SendOpts {
 export async function runSend(opts: SendOpts): Promise<void> {
   const account = await resolveAccount(opts.account);
   if (!account) {
-    console.error(pc.red("No account configured. Run `cmail init`."));
+    console.error(pc.red("No account configured. Run `mmm init`."));
     process.exit(1);
   }
   if (!opts.subject) {
@@ -58,7 +58,7 @@ async function readStdin(): Promise<string> {
 
 function composeInEditor(): Promise<string> {
   const editor = process.env.EDITOR || process.env.VISUAL || "vi";
-  const dir = mkdtempSync(join(tmpdir(), "cmail-"));
+  const dir = mkdtempSync(join(tmpdir(), "mmmail-"));
   const file = join(dir, "message.txt");
   writeFileSync(file, "");
   const res = spawnSync(editor, [file], { stdio: "inherit" });

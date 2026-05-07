@@ -9,7 +9,7 @@ const pkg = createRequire(import.meta.url)("../package.json") as {
 const program = new Command();
 
 program
-  .name("cmail")
+  .name("mmm")
   .description("CLI mail client for Gmail, Outlook, and IMAP")
   .version(pkg.version);
 

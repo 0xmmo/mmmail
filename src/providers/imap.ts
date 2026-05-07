@@ -28,7 +28,7 @@ export class ImapProvider implements Provider {
     const imapPassword = await getSecret("imap-password", account.email);
     if (!imapPassword) {
       throw new Error(
-        `No IMAP password stored for ${account.email}. Run \`cmail init\` again.`,
+        `No IMAP password stored for ${account.email}. Run \`mmm init\` again.`,
       );
     }
     const client = new ImapFlow({

@@ -12,7 +12,7 @@ interface SearchOpts {
 export async function runSearch(query: string, opts: SearchOpts): Promise<void> {
   const account = await resolveAccount(opts.account);
   if (!account) {
-    console.error(pc.red("No account configured. Run `cmail init`."));
+    console.error(pc.red("No account configured. Run `mmm init`."));
     process.exit(1);
   }
   const provider = await getProvider(account);

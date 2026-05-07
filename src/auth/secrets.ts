@@ -1,6 +1,6 @@
 import keytar from "keytar";
 
-const SERVICE = "cmail";
+const SERVICE = "mmmail";
 
 export type SecretKind = "imap-password" | "smtp-password" | "oauth-refresh";
 
