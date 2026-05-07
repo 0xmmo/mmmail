@@ -1,6 +1,6 @@
 # mmmail
 
-A small CLI mail client. Stateless commands — list, read, send, reply, search — over IMAP/SMTP, with OAuth for Gmail and Outlook on the roadmap. Installs the `mmm` binary.
+A small CLI mail client. Stateless commands — list, read, send, reply, search — for Gmail (OAuth) and any IMAP/SMTP server. Installs the `mmm` binary.
 
 ## Install
 
@@ -32,12 +32,27 @@ Account metadata lives in `~/.config/mmmail/config.json` (mode 0600). Passwords 
 
 | Provider | Status | Auth |
 |---|---|---|
+| Google | ✅ supported | OAuth 2.0 (loopback redirect) |
+| Microsoft | 🚧 stubbed for now | OAuth 2.0 + Microsoft Graph (planned) |
 | Generic IMAP / SMTP | ✅ supported | App password (stored in OS keychain) |
 | Fastmail / iCloud / Yahoo | ✅ supported | App password (server presets included) |
-| Gmail | 🚧 stubbed for now | OAuth 2.0 device-code (planned) |
-| Outlook | 🚧 stubbed for now | OAuth 2.0 device-code + Microsoft Graph (planned) |
 
-For Gmail and Outlook today, use **app passwords** with the generic IMAP path. Native OAuth requires a registered OAuth client and is on the roadmap.
+### Google setup (one-time, ~3 min)
+
+`mmm` uses **your own** Google OAuth client. Google's `https://mail.google.com/` scope is restricted, so a shared client isn't possible — but `mmm init` walks you through the setup and opens each URL for you.
+
+You'll do this once per machine. Subsequent Gmail accounts skip the setup and only run the consent flow.
+
+1. Create or pick a Google Cloud project — https://console.cloud.google.com/projectcreate
+2. Enable the Gmail API — https://console.cloud.google.com/apis/library/gmail.googleapis.com
+3. Configure the OAuth consent screen — https://console.cloud.google.com/auth/overview
+   - User type: **External**
+   - Add your Gmail address as a **Test user** (Audience tab)
+4. Create OAuth credentials — https://console.cloud.google.com/auth/clients
+   - Type: **Desktop app**
+5. Copy the **Client ID** and **Client secret** from the dialog and paste them when `mmm init` asks
+
+Your app stays in **testing mode** (no Google verification needed) — that's fine for personal use. Up to 100 test users can authorize.
 
 ## Commands
 

@@ -2,10 +2,17 @@ import { Entry } from "@napi-rs/keyring";
 
 const SERVICE = "mmmail";
 
-export type SecretKind = "imap-password" | "smtp-password" | "oauth-refresh";
+export type SecretKind =
+  | "imap-password"
+  | "smtp-password"
+  | "oauth-refresh"
+  | "oauth-client-id"
+  | "oauth-client-secret";
 
-function entry(kind: SecretKind, email: string): Entry {
-  return new Entry(SERVICE, `${kind}:${email}`);
+export type ProviderName = "google" | "microsoft";
+
+function entry(key: string): Entry {
+  return new Entry(SERVICE, key);
 }
 
 export async function setSecret(
@@ -13,7 +20,7 @@ export async function setSecret(
   email: string,
   value: string,
 ): Promise<void> {
-  entry(kind, email).setPassword(value);
+  entry(`${kind}:${email}`).setPassword(value);
 }
 
 export async function getSecret(
@@ -21,7 +28,7 @@ export async function getSecret(
   email: string,
 ): Promise<string | null> {
   try {
-    return entry(kind, email).getPassword() ?? null;
+    return entry(`${kind}:${email}`).getPassword() ?? null;
   } catch {
     return null;
   }
@@ -32,9 +39,28 @@ export async function deleteSecret(
   email: string,
 ): Promise<boolean> {
   try {
-    return entry(kind, email).deletePassword();
+    return entry(`${kind}:${email}`).deletePassword();
   } catch {
     return false;
+  }
+}
+
+export async function setProviderSecret(
+  provider: ProviderName,
+  kind: "oauth-client-id" | "oauth-client-secret",
+  value: string,
+): Promise<void> {
+  entry(`${kind}:provider:${provider}`).setPassword(value);
+}
+
+export async function getProviderSecret(
+  provider: ProviderName,
+  kind: "oauth-client-id" | "oauth-client-secret",
+): Promise<string | null> {
+  try {
+    return entry(`${kind}:provider:${provider}`).getPassword() ?? null;
+  } catch {
+    return null;
   }
 }
 

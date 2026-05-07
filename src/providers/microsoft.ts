@@ -7,10 +7,10 @@ import type {
   SendInput,
 } from "./index.js";
 
-export class GmailProvider implements Provider {
-  static async connect(_account: AccountConfig): Promise<GmailProvider> {
+export class MicrosoftProvider implements Provider {
+  static async connect(_account: AccountConfig): Promise<MicrosoftProvider> {
     throw new Error(
-      "Gmail provider is not yet implemented in this build. Use --kind imap with an app password for now.",
+      "Microsoft provider is not yet implemented in this build. Use generic IMAP for now.",
     );
   }
   list(_opts: ListOptions): Promise<MessageSummary[]> {

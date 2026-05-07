@@ -55,13 +55,13 @@ export async function getProvider(account: AccountConfig): Promise<Provider> {
       const { ImapProvider } = await import("./imap.js");
       return ImapProvider.connect(account);
     }
-    case "gmail": {
-      const { GmailProvider } = await import("./gmail.js");
-      return GmailProvider.connect(account);
+    case "google": {
+      const { GoogleProvider } = await import("./google.js");
+      return GoogleProvider.connect(account);
     }
-    case "outlook": {
-      const { OutlookProvider } = await import("./outlook.js");
-      return OutlookProvider.connect(account);
+    case "microsoft": {
+      const { MicrosoftProvider } = await import("./microsoft.js");
+      return MicrosoftProvider.connect(account);
     }
   }
 }

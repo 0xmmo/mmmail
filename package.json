@@ -1,7 +1,7 @@
 {
   "name": "@0xmmo/mmmail",
   "version": "0.1.1",
-  "description": "CLI mail client for Gmail, Outlook, and IMAP",
+  "description": "CLI mail client for Google, Microsoft, and IMAP",
   "type": "module",
   "bin": {
     "mmm": "dist/cli.js"
@@ -15,8 +15,9 @@
     "node": ">=20"
   },
   "scripts": {
+    "cli": "tsx src/cli.ts",
     "build": "tsup",
-    "dev": "tsup --watch",
+    "watch": "tsup --watch",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -48,12 +49,13 @@
   "dependencies": {
     "@azure/msal-node": "^5.1.5",
     "@inquirer/prompts": "^7.0.0",
+    "@napi-rs/keyring": "^1.3.0",
     "commander": "^14.0.3",
     "google-auth-library": "^10.6.2",
     "imapflow": "^1.3.3",
-    "@napi-rs/keyring": "^1.3.0",
     "mailparser": "^3.7.0",
     "nodemailer": "^8.0.7",
+    "open": "^11.0.0",
     "picocolors": "^1.1.0"
   },
   "devDependencies": {
@@ -61,6 +63,7 @@
     "@types/node": "^22.0.0",
     "@types/nodemailer": "^6.4.0",
     "tsup": "^8.5.1",
+    "tsx": "^4.21.0",
     "typescript": "^5.6.0",
     "vitest": "^4.1.5"
   }

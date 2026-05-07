@@ -10,7 +10,7 @@ const program = new Command();
 
 program
   .name("mmm")
-  .description("CLI mail client for Gmail, Outlook, and IMAP")
+  .description("CLI mail client for Google, Microsoft, and IMAP")
   .version(pkg.version);
 
 program

@@ -2,7 +2,7 @@ import { promises as fs } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 
-export type ProviderKind = "gmail" | "outlook" | "imap";
+export type ProviderKind = "google" | "microsoft" | "imap";
 
 export interface ImapAccountConfig {
   kind: "imap";
@@ -12,7 +12,7 @@ export interface ImapAccountConfig {
 }
 
 export interface OAuthAccountConfig {
-  kind: "gmail" | "outlook";
+  kind: "google" | "microsoft";
   email: string;
 }
 

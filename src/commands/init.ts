@@ -1,10 +1,17 @@
-import { input, password, select } from "@inquirer/prompts";
+import { confirm, input, password, select } from "@inquirer/prompts";
+import open from "open";
 import pc from "picocolors";
 import {
   upsertAccount,
   type ImapAccountConfig,
+  type OAuthAccountConfig,
 } from "../config/store.js";
-import { setSecret } from "../auth/secrets.js";
+import {
+  getProviderSecret,
+  setProviderSecret,
+  setSecret,
+} from "../auth/secrets.js";
+import { runConsentFlow } from "../auth/oauth-google.js";
 
 interface ProviderPreset {
   imap: { host: string; port: number; secure: boolean };
@@ -30,17 +37,26 @@ export async function runInit(): Promise<void> {
   const kind = await select({
     message: "Provider",
     choices: [
+      { name: "Google (OAuth)", value: "google" },
+      { name: "Microsoft (OAuth) — coming soon", value: "microsoft", disabled: true },
       { name: "Generic IMAP/SMTP (app password)", value: "imap" },
-      { name: "Gmail (OAuth) — coming soon", value: "gmail", disabled: true },
-      { name: "Outlook (OAuth) — coming soon", value: "outlook", disabled: true },
     ],
   });
 
+  if (kind === "google") {
+    await runGoogleInit();
+    return;
+  }
+
   if (kind !== "imap") {
-    console.error(pc.yellow("Only generic IMAP is supported in this release."));
+    console.error(pc.yellow("Only Google and generic IMAP are supported."));
     process.exit(1);
   }
 
+  await runImapInit();
+}
+
+async function runImapInit(): Promise<void> {
   const email = await input({
     message: "Email address",
     validate: (v) => /.+@.+\..+/.test(v) || "Enter a valid email",
@@ -107,4 +123,111 @@ export async function runInit(): Promise<void> {
 
   console.log(pc.green(`✓ Saved account ${email}`));
   console.log(pc.dim(`  Try: mmm list`));
+}
+
+async function runGoogleInit(): Promise<void> {
+  let clientId = await getProviderSecret("google", "oauth-client-id");
+  let clientSecret = await getProviderSecret("google", "oauth-client-secret");
+
+  if (!clientId || !clientSecret) {
+    await walkGoogleCloudSetup();
+    clientId = await input({
+      message: "Client ID (from the OAuth client dialog)",
+      validate: (v) =>
+        v.endsWith(".apps.googleusercontent.com") ||
+        "Should end with .apps.googleusercontent.com",
+    });
+    clientSecret = await password({
+      message: "Client secret (stored in OS keychain)",
+      mask: "•",
+    });
+    await setProviderSecret("google", "oauth-client-id", clientId);
+    await setProviderSecret("google", "oauth-client-secret", clientSecret);
+    console.log(pc.dim("  Saved Google OAuth client credentials. They'll be reused for additional Gmail accounts."));
+  } else {
+    console.log(
+      pc.dim(
+        "  Reusing saved Google OAuth client credentials. (Run `mmm init --reset-google` if you need to change them.)",
+      ),
+    );
+  }
+
+  const email = await input({
+    message: "Gmail address",
+    validate: (v) => /.+@.+\..+/.test(v) || "Enter a valid email",
+  });
+
+  console.log(pc.dim("  Opening browser to authorize..."));
+  const tokens = await runConsentFlow({
+    clientId,
+    clientSecret,
+    loginHint: email,
+    onAuthUrl: (url) => {
+      console.log(pc.dim(`  If the browser doesn't open, visit:\n  ${url}`));
+    },
+  });
+
+  await setSecret("oauth-refresh", email, tokens.refreshToken);
+  const account: OAuthAccountConfig = { kind: "google", email };
+  await upsertAccount(account);
+
+  console.log(pc.green(`✓ Authorized ${email}`));
+  console.log(pc.dim(`  Try: mmm list`));
+}
+
+async function walkGoogleCloudSetup(): Promise<void> {
+  console.log("");
+  console.log(
+    pc.bold("  mmmail uses your own Google OAuth client. ~3 min one-time setup."),
+  );
+  console.log("");
+  const steps: { title: string; url?: string; detail?: string }[] = [
+    {
+      title: "Create or select a Google Cloud project",
+      url: "https://console.cloud.google.com/projectcreate",
+    },
+    {
+      title: "Enable the Gmail API",
+      url: "https://console.cloud.google.com/apis/library/gmail.googleapis.com",
+      detail: "Click 'Enable' on the Gmail API page.",
+    },
+    {
+      title: "Configure OAuth consent screen",
+      url: "https://console.cloud.google.com/auth/overview",
+      detail:
+        "User type: External. Add your Gmail address as a Test user (Audience tab).",
+    },
+    {
+      title: "Create OAuth credentials (Desktop app)",
+      url: "https://console.cloud.google.com/auth/clients",
+      detail:
+        "Click '+ Create Client' → Application type: Desktop app. Name it anything.",
+    },
+    {
+      title: "Copy the Client ID + Client secret from the dialog",
+    },
+  ];
+
+  for (const [i, step] of steps.entries()) {
+    console.log(pc.cyan(`  Step ${i + 1}: ${step.title}`));
+    if (step.url) console.log(`          ${pc.underline(step.url)}`);
+    if (step.detail) console.log(pc.dim(`          ${step.detail}`));
+  }
+  console.log("");
+
+  const openAll = await confirm({
+    message: "Open these URLs in your browser now?",
+    default: true,
+  });
+  if (openAll) {
+    for (const step of steps) {
+      if (step.url) {
+        await open(step.url).catch(() => undefined);
+      }
+    }
+  }
+  await confirm({
+    message: "Press enter when you have your Client ID and secret ready",
+    default: true,
+  });
 }
