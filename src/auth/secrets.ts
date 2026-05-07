@@ -1,11 +1,11 @@
-import keytar from "keytar";
+import { Entry } from "@napi-rs/keyring";
 
 const SERVICE = "mmmail";
 
 export type SecretKind = "imap-password" | "smtp-password" | "oauth-refresh";
 
-function key(kind: SecretKind, email: string): string {
-  return `${kind}:${email}`;
+function entry(kind: SecretKind, email: string): Entry {
+  return new Entry(SERVICE, `${kind}:${email}`);
 }
 
 export async function setSecret(
@@ -13,21 +13,29 @@ export async function setSecret(
   email: string,
   value: string,
 ): Promise<void> {
-  await keytar.setPassword(SERVICE, key(kind, email), value);
+  entry(kind, email).setPassword(value);
 }
 
 export async function getSecret(
   kind: SecretKind,
   email: string,
 ): Promise<string | null> {
-  return keytar.getPassword(SERVICE, key(kind, email));
+  try {
+    return entry(kind, email).getPassword() ?? null;
+  } catch {
+    return null;
+  }
 }
 
 export async function deleteSecret(
   kind: SecretKind,
   email: string,
 ): Promise<boolean> {
-  return keytar.deletePassword(SERVICE, key(kind, email));
+  try {
+    return entry(kind, email).deletePassword();
+  } catch {
+    return false;
+  }
 }
 
 export async function deleteAllForAccount(email: string): Promise<void> {
