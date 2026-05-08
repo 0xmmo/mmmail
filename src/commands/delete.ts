@@ -1,16 +1,14 @@
 import pc from "picocolors";
 import { resolveAccount } from "../config/store.js";
 import { getProvider } from "../providers/index.js";
-import { renderMessage } from "../ui/pager.js";
 
-interface ReadOpts {
+interface DeleteOpts {
   folder?: string;
   account?: string;
   json?: boolean;
-  includeHtml?: boolean;
 }
 
-export async function runRead(id: string, opts: ReadOpts): Promise<void> {
+export async function runDelete(id: string, opts: DeleteOpts): Promise<void> {
   const account = await resolveAccount(opts.account);
   if (!account) {
     console.error(pc.red("No account configured. Run `mmm init`."));
@@ -18,12 +16,13 @@ export async function runRead(id: string, opts: ReadOpts): Promise<void> {
   }
   const provider = await getProvider(account);
   try {
-    const msg = await provider.fetch(id, { folder: opts.folder });
-    if (!opts.includeHtml) msg.html = undefined;
+    await provider.del(id, { folder: opts.folder });
     if (opts.json) {
-      console.log(JSON.stringify(msg, null, 2));
+      console.log(
+        JSON.stringify({ ok: true, id, folder: opts.folder ?? "INBOX" }, null, 2),
+      );
     } else {
-      console.log(renderMessage(msg));
+      console.log(pc.green(`✓ Deleted ${id}`));
     }
   } finally {
     await provider.close();

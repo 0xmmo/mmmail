@@ -5,8 +5,11 @@ import { runSend } from "./send.js";
 
 interface ReplyOpts {
   body?: string;
+  bodyStdin?: boolean;
+  folder?: string;
   account?: string;
   all?: boolean;
+  json?: boolean;
 }
 
 export async function runReply(id: string, opts: ReplyOpts): Promise<void> {
@@ -19,7 +22,7 @@ export async function runReply(id: string, opts: ReplyOpts): Promise<void> {
   const provider = await getProvider(account);
   let original;
   try {
-    original = await provider.fetch(id);
+    original = await provider.fetch(id, { folder: opts.folder });
   } finally {
     await provider.close();
   }
@@ -36,11 +39,19 @@ export async function runReply(id: string, opts: ReplyOpts): Promise<void> {
     .join("\n");
   const body = (opts.body ?? "") + "\n\n" + quoted;
 
+  const references = original.messageId
+    ? [...original.references, original.messageId]
+    : original.references;
+
   await runSend({
     to,
     cc,
     subject,
     body,
+    bodyStdin: opts.bodyStdin,
     account: opts.account,
+    json: opts.json,
+    inReplyTo: original.messageId,
+    references,
   });
 }

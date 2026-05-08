@@ -21,6 +21,7 @@ export interface MessageBody {
   text: string;
   html?: string;
   inReplyTo?: string;
+  references: string[];
   messageId?: string;
 }
 
@@ -28,6 +29,22 @@ export interface ListOptions {
   folder?: string;
   limit?: number;
   unread?: boolean;
+  since?: Date;
+  before?: Date;
+  uidAfter?: number;
+}
+
+export interface SearchOptions {
+  folder?: string;
+  limit?: number;
+  since?: Date;
+  before?: Date;
+  uidAfter?: number;
+}
+
+export interface SetFlagsInput {
+  seen?: boolean;
+  flagged?: boolean;
 }
 
 export interface SendInput {
@@ -41,11 +58,21 @@ export interface SendInput {
   references?: string[];
 }
 
+export interface SendResult {
+  messageId?: string;
+  accepted: string[];
+  rejected: string[];
+}
+
 export interface Provider {
   list(opts: ListOptions): Promise<MessageSummary[]>;
-  fetch(id: string): Promise<MessageBody>;
-  send(input: SendInput): Promise<void>;
-  search(query: string, opts?: { folder?: string; limit?: number }): Promise<MessageSummary[]>;
+  fetch(id: string, opts?: { folder?: string }): Promise<MessageBody>;
+  send(input: SendInput): Promise<SendResult>;
+  search(query: string, opts?: SearchOptions): Promise<MessageSummary[]>;
+  folders(): Promise<string[]>;
+  setFlags(id: string, flags: SetFlagsInput, opts?: { folder?: string }): Promise<void>;
+  move(id: string, dest: string, opts?: { folder?: string }): Promise<void>;
+  del(id: string, opts?: { folder?: string }): Promise<void>;
   close(): Promise<void>;
 }
 

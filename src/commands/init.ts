@@ -1,23 +1,28 @@
 import { confirm, input, password, select } from "@inquirer/prompts";
 import pc from "picocolors";
 import {
+  readConfig,
+  removeAccount,
+  setDefaultAccount,
   upsertAccount,
+  type AccountConfig,
   type ImapAccountConfig,
   type OAuthAccountConfig,
 } from "../config/store.js";
 import {
+  deleteAllForAccount,
   getProviderSecret,
   setProviderSecret,
   setSecret,
 } from "../auth/secrets.js";
 import { runConsentFlow } from "../auth/oauth-google.js";
 
-interface ProviderPreset {
+export interface ProviderPreset {
   imap: { host: string; port: number; secure: boolean };
   smtp: { host: string; port: number; secure: boolean };
 }
 
-const PRESETS: Record<string, ProviderPreset> = {
+export const PRESETS: Record<string, ProviderPreset> = {
   fastmail: {
     imap: { host: "imap.fastmail.com", port: 993, secure: true },
     smtp: { host: "smtp.fastmail.com", port: 465, secure: true },
@@ -32,7 +37,200 @@ const PRESETS: Record<string, ProviderPreset> = {
   },
 };
 
+export interface GoogleSetupStep {
+  title: string;
+  url?: string;
+  detail?: string;
+}
+
+export const GOOGLE_SETUP_STEPS: GoogleSetupStep[] = [
+  {
+    title: "Create a Google Cloud project (or skip if you already have one)",
+    url: "https://console.cloud.google.com/projectcreate",
+    detail: "Name it (e.g. 'mmmail') and click Create.",
+  },
+  {
+    title: "Enable the Gmail API",
+    url: "https://console.cloud.google.com/apis/library/gmail.googleapis.com",
+    detail: "Click 'Enable' on the Gmail API page.",
+  },
+  {
+    title: "Configure OAuth consent screen",
+    url: "https://console.cloud.google.com/auth/overview",
+    detail:
+      "Choose a name and Audience: External. Add your Gmail address for support & contact.",
+  },
+  {
+    title: "Add yourself as a test user",
+    url: "https://console.cloud.google.com/auth/audience",
+    detail:
+      "Under the Audience tab, scroll to 'Test users' and add your Gmail address.",
+  },
+  {
+    title: "Create OAuth credentials (Desktop app)",
+    url: "https://console.cloud.google.com/auth/clients",
+    detail:
+      "Click '+ Create Client' → Application type: Desktop app. Name it and don't close the dialog!",
+  },
+  {
+    title: "Copy the Client ID + Client secret from the dialog",
+  },
+];
+
+export function printGoogleSetupSteps(): void {
+  console.log(
+    pc.bold("Google OAuth client setup") + pc.dim(" (~3 min, one-time)"),
+  );
+  console.log("");
+  for (const [i, step] of GOOGLE_SETUP_STEPS.entries()) {
+    console.log(pc.cyan(`  Step ${i + 1}: ${step.title}`));
+    if (step.url) console.log(`          ${pc.underline(step.url)}`);
+    if (step.detail) console.log(pc.dim(`          ${step.detail}`));
+  }
+}
+
+export async function addImapAccount(opts: {
+  email: string;
+  imap: { host: string; port: number; secure: boolean };
+  smtp: { host: string; port: number; secure: boolean };
+  password: string;
+  smtpPassword?: string;
+}): Promise<void> {
+  const account: ImapAccountConfig = {
+    kind: "imap",
+    email: opts.email,
+    imap: { ...opts.imap, user: opts.email },
+    smtp: { ...opts.smtp, user: opts.email },
+  };
+  await setSecret("imap-password", opts.email, opts.password);
+  if (opts.smtpPassword) {
+    await setSecret("smtp-password", opts.email, opts.smtpPassword);
+  }
+  await upsertAccount(account);
+}
+
+export async function addGoogleAccount(opts: {
+  clientId: string;
+  clientSecret: string;
+  email: string;
+  onAuthUrl?: (url: string) => void;
+}): Promise<void> {
+  await setProviderSecret("google", "oauth-client-id", opts.clientId);
+  await setProviderSecret("google", "oauth-client-secret", opts.clientSecret);
+  const tokens = await runConsentFlow({
+    clientId: opts.clientId,
+    clientSecret: opts.clientSecret,
+    loginHint: opts.email,
+    onAuthUrl: opts.onAuthUrl,
+  });
+  await setSecret("oauth-refresh", opts.email, tokens.refreshToken);
+  const account: OAuthAccountConfig = { kind: "google", email: opts.email };
+  await upsertAccount(account);
+}
+
 export async function runInit(): Promise<void> {
+  if (!process.stdin.isTTY) {
+    await printNonInteractiveHelp();
+    return;
+  }
+
+  while (true) {
+    const cfg = await readConfig();
+    const accounts = Object.values(cfg.accounts);
+
+    if (accounts.length === 0) {
+      console.log(pc.dim("No accounts yet. Let's add one."));
+      console.log("");
+      const added = await runAdd();
+      if (!added) return;
+      continue;
+    }
+
+    printAccounts(accounts, cfg.defaultAccount);
+
+    const choices: { name: string; value: string }[] = [
+      { name: "Add an account", value: "add" },
+    ];
+    if (accounts.length > 1) {
+      choices.push({ name: "Set default account", value: "set-default" });
+    }
+    choices.push({ name: "Remove an account", value: "remove" });
+    choices.push({ name: "Exit", value: "exit" });
+
+    const action = await select({
+      message: "Options",
+      choices,
+      default: "exit",
+    });
+
+    if (action === "exit") return;
+    if (action === "add") await runAdd();
+    if (action === "set-default") await runSetDefault(accounts, cfg.defaultAccount);
+    if (action === "remove") await runRemove(accounts);
+    console.log("");
+  }
+}
+
+async function printNonInteractiveHelp(): Promise<void> {
+  const cfg = await readConfig();
+  const accounts = Object.values(cfg.accounts);
+
+  console.log(pc.bold("mmmail") + pc.dim(" — running in non-interactive mode"));
+  console.log(
+    pc.dim(
+      `  Run ${pc.cyan("`mmm`")}${pc.dim(" interactively from a terminal, or use the commands below.")}`,
+    ),
+  );
+  console.log("");
+
+  if (accounts.length > 0) {
+    printAccounts(accounts, cfg.defaultAccount);
+  } else {
+    console.log(pc.dim("No accounts configured yet."));
+    console.log("");
+  }
+
+  console.log(pc.bold("Add an account (non-interactive)"));
+  console.log(`  ${pc.cyan("mmm setup google")}                                ${pc.dim("# print Google OAuth setup steps")}`);
+  console.log(`  ${pc.cyan("mmm add google --email <you@gmail.com> \\")}`);
+  console.log(`    ${pc.cyan("--client-id <id> --client-secret <secret>")}    ${pc.dim("# authorize via loopback URL")}`);
+  console.log(`  ${pc.cyan("mmm add imap --email <addr> --preset fastmail \\")}`);
+  console.log(`    ${pc.cyan("--password-env IMAP_PW")}                       ${pc.dim("# (or --password-stdin)")}`);
+  console.log("");
+
+  console.log(pc.bold("Manage accounts"));
+  console.log(`  ${pc.cyan("mmm accounts")}              ${pc.dim("# list configured accounts")}`);
+  if (accounts.length > 1) {
+    console.log(`  ${pc.cyan("mmm default <email>")}       ${pc.dim("# switch the default account")}`);
+  }
+  if (accounts.length > 0) {
+    console.log(`  ${pc.cyan("mmm remove <email>")}        ${pc.dim("# remove an account + its keychain entries")}`);
+  }
+  console.log("");
+
+  console.log(pc.bold("Use mmmail"));
+  console.log(`  ${pc.cyan("mmm list [-n N] [-u]")}                   ${pc.dim("# list INBOX messages")}`);
+  console.log(`  ${pc.cyan("mmm read <uid>")}                         ${pc.dim("# read one message")}`);
+  console.log(`  ${pc.cyan("mmm send -t <to> -s <subj> -b <body>")}   ${pc.dim("# send")}`);
+  console.log(`  ${pc.cyan("mmm reply <uid> -b <body>")}              ${pc.dim("# reply")}`);
+  console.log(`  ${pc.cyan("mmm search <query>")}                     ${pc.dim("# search")}`);
+  console.log(pc.dim("  Add `-a <email>` to any of these to override the default account."));
+}
+
+function printAccounts(accounts: AccountConfig[], defaultEmail?: string): void {
+  console.log(pc.bold("Accounts"));
+  for (const a of accounts) {
+    const isDefault = a.email === defaultEmail;
+    const marker = isDefault ? pc.green("●") : pc.dim("○");
+    const label = isDefault
+      ? pc.bold(a.email) + pc.green(" (default)")
+      : pc.bold(a.email);
+    console.log(`  ${marker} ${label}  ${pc.dim(a.kind)}`);
+  }
+  console.log("");
+}
+
+async function runAdd(): Promise<boolean> {
   const kind = await select({
     message: "Provider",
     choices: [
@@ -44,15 +242,56 @@ export async function runInit(): Promise<void> {
 
   if (kind === "google") {
     await runGoogleInit();
+    return true;
+  }
+  if (kind === "imap") {
+    await runImapInit();
+    return true;
+  }
+  return false;
+}
+
+async function runSetDefault(
+  accounts: AccountConfig[],
+  currentDefault?: string,
+): Promise<void> {
+  const pick = await select({
+    message: "Set default account",
+    choices: [
+      { name: "Cancel", value: "" },
+      ...accounts
+        .filter((a) => a.email !== currentDefault)
+        .map((a) => ({ name: a.email, value: a.email })),
+    ],
+    default: "",
+  });
+  if (!pick) return;
+  await setDefaultAccount(pick);
+  console.log(pc.green(`✓ Default set to ${pick}`));
+}
+
+async function runRemove(accounts: AccountConfig[]): Promise<void> {
+  const pick = await select({
+    message: "Remove which account?",
+    choices: [
+      { name: "Cancel", value: "" },
+      ...accounts.map((a) => ({ name: a.email, value: a.email })),
+    ],
+    default: "",
+  });
+  if (!pick) return;
+  const sure = await confirm({
+    message: `Remove ${pick}? This deletes its keychain entries too.`,
+    default: false,
+  });
+  if (!sure) return;
+  const removed = await removeAccount(pick);
+  if (!removed) {
+    console.error(pc.red(`No account ${pick}`));
     return;
   }
-
-  if (kind !== "imap") {
-    console.error(pc.yellow("Only Google and generic IMAP are supported."));
-    process.exit(1);
-  }
-
-  await runImapInit();
+  await deleteAllForAccount(pick);
+  console.log(pc.green(`✓ Removed ${pick}`));
 }
 
 async function runImapInit(): Promise<void> {
@@ -110,15 +349,25 @@ async function runImapInit(): Promise<void> {
     mask: "•",
   });
 
-  const account: ImapAccountConfig = {
-    kind: "imap",
-    email,
-    imap: { ...preset.imap, user: email },
-    smtp: { ...preset.smtp, user: email },
-  };
+  let smtpPassword: string | undefined;
+  const sameSmtp = await confirm({
+    message: "Use the same password for SMTP?",
+    default: true,
+  });
+  if (!sameSmtp) {
+    smtpPassword = await password({
+      message: "SMTP password (stored in OS keychain)",
+      mask: "•",
+    });
+  }
 
-  await setSecret("imap-password", email, pw);
-  await upsertAccount(account);
+  await addImapAccount({
+    email,
+    imap: preset.imap,
+    smtp: preset.smtp,
+    password: pw,
+    smtpPassword,
+  });
 
   console.log(pc.green(`✓ Saved account ${email}`));
   console.log(pc.dim(`  Try: mmm list`));
@@ -129,7 +378,17 @@ async function runGoogleInit(): Promise<void> {
   let clientSecret = await getProviderSecret("google", "oauth-client-secret");
 
   if (!clientId || !clientSecret) {
-    await walkGoogleCloudSetup();
+    console.log("");
+    console.log(
+      pc.bold("  mmmail will setup your own private local Google OAuth client (~3 min)"),
+    );
+    console.log("");
+    printGoogleSetupSteps();
+    console.log("");
+    await confirm({
+      message: "Press enter when you have your Client ID and secret ready",
+      default: true,
+    });
     clientId = await input({
       message: "Client ID (from the OAuth client dialog)",
       validate: (v) =>
@@ -140,13 +399,11 @@ async function runGoogleInit(): Promise<void> {
       message: "Client secret (stored in OS keychain)",
       mask: "•",
     });
-    await setProviderSecret("google", "oauth-client-id", clientId);
-    await setProviderSecret("google", "oauth-client-secret", clientSecret);
     console.log(pc.dim("  Saved Google OAuth client credentials. They can be reused for additional future Gmail accounts."));
   } else {
     console.log(
       pc.dim(
-        "  Reusing saved Google OAuth client credentials. (Run `mmm init --reset-google` if you need to change them.)",
+        "  Reusing saved Google OAuth client credentials. (Run `mmm reset-google` if you need to change them.)",
       ),
     );
   }
@@ -161,72 +418,15 @@ async function runGoogleInit(): Promise<void> {
   });
 
   console.log(pc.dim("  Opening browser to authorize..."));
-  const tokens = await runConsentFlow({
+  await addGoogleAccount({
     clientId,
     clientSecret,
-    loginHint: email,
+    email,
     onAuthUrl: (url) => {
       console.log(pc.dim(`  If the browser doesn't open, visit:\n  ${url}`));
     },
   });
 
-  await setSecret("oauth-refresh", email, tokens.refreshToken);
-  const account: OAuthAccountConfig = { kind: "google", email };
-  await upsertAccount(account);
-
   console.log(pc.green(`✓ Authorized ${email}`));
   console.log(pc.dim(`  Try: mmm list`));
-}
-
-async function walkGoogleCloudSetup(): Promise<void> {
-  console.log("");
-  console.log(
-    pc.bold("  mmmail will setup your own private local Google OAuth client (~3 min)"),
-  );
-  console.log("");
-  const steps: { title: string; url?: string; detail?: string }[] = [
-    {
-      title: "Create a Google Cloud project (or skip if you already have one)",
-      url: "https://console.cloud.google.com/projectcreate",
-      detail: "Name it (e.g. 'mmmail') and click Create.",
-    },
-    {
-      title: "Enable the Gmail API",
-      url: "https://console.cloud.google.com/apis/library/gmail.googleapis.com",
-      detail: "Click 'Enable' on the Gmail API page.",
-    },
-    {
-      title: "Configure OAuth consent screen",
-      url: "https://console.cloud.google.com/auth/overview",
-      detail:
-        "Choose a name and Audience: External. Add your Gmail address for support & contact.",
-    },
-    {
-      title: "Add yourself as a test user",
-      url: "https://console.cloud.google.com/auth/audience",
-      detail:
-        "Under the Audience tab, scroll to 'Test users' and add your Gmail address.",
-    },
-    {
-      title: "Create OAuth credentials (Desktop app)",
-      url: "https://console.cloud.google.com/auth/clients",
-      detail:
-        "Click '+ Create Client' → Application type: Desktop app. Name it and don't close the dialog!",
-    },
-    {
-      title: "Copy the Client ID + Client secret from the dialog",
-    },
-  ];
-
-  for (const [i, step] of steps.entries()) {
-    console.log(pc.cyan(`  Step ${i + 1}: ${step.title}`));
-    if (step.url) console.log(`          ${pc.underline(step.url)}`);
-    if (step.detail) console.log(pc.dim(`          ${step.detail}`));
-  }
-  console.log("");
-
-  await confirm({
-    message: "Press enter when you have your Client ID and secret ready",
-    default: true,
-  });
 }

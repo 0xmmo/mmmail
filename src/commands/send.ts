@@ -12,7 +12,11 @@ interface SendOpts {
   bcc?: string[];
   subject?: string;
   body?: string;
+  bodyStdin?: boolean;
   account?: string;
+  json?: boolean;
+  inReplyTo?: string;
+  references?: string[];
 }
 
 export async function runSend(opts: SendOpts): Promise<void> {
@@ -27,22 +31,35 @@ export async function runSend(opts: SendOpts): Promise<void> {
   }
 
   let body = opts.body;
-  if (body === "-") {
+  if (opts.bodyStdin || body === "-") {
     body = await readStdin();
   } else if (body === undefined) {
+    if (opts.json) {
+      console.error(
+        pc.red("--body or --body-stdin is required in --json mode (no $EDITOR fallback)"),
+      );
+      process.exit(1);
+    }
     body = await composeInEditor();
   }
 
   const provider = await getProvider(account);
   try {
-    await provider.send({
+    const result = await provider.send({
       to: opts.to,
       cc: opts.cc,
       bcc: opts.bcc,
       subject: opts.subject,
       text: body ?? "",
+      inReplyTo: opts.inReplyTo,
+      references: opts.references,
     });
-    console.log(pc.green(`✓ Sent to ${opts.to.join(", ")}`));
+    if (opts.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      console.log(pc.green(`✓ Sent to ${opts.to.join(", ")}`));
+      if (result.messageId) console.log(pc.dim(`  ${result.messageId}`));
+    }
   } finally {
     await provider.close();
   }

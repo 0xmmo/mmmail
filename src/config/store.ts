@@ -67,6 +67,14 @@ export async function removeAccount(email: string): Promise<boolean> {
   return true;
 }
 
+export async function setDefaultAccount(email: string): Promise<boolean> {
+  const cfg = await readConfig();
+  if (!(email in cfg.accounts)) return false;
+  cfg.defaultAccount = email;
+  await writeConfig(cfg);
+  return true;
+}
+
 export async function resolveAccount(
   email?: string,
 ): Promise<AccountConfig | undefined> {

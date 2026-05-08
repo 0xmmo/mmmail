@@ -6,7 +6,11 @@ import { renderMessageTable } from "../ui/table.js";
 interface SearchOpts {
   folder?: string;
   limit?: string;
+  since?: string;
+  before?: string;
+  uidAfter?: string;
   account?: string;
+  json?: boolean;
 }
 
 export async function runSearch(query: string, opts: SearchOpts): Promise<void> {
@@ -20,9 +24,26 @@ export async function runSearch(query: string, opts: SearchOpts): Promise<void> 
     const messages = await provider.search(query, {
       folder: opts.folder,
       limit: opts.limit ? Number(opts.limit) : undefined,
+      since: parseDate(opts.since, "--since"),
+      before: parseDate(opts.before, "--before"),
+      uidAfter: opts.uidAfter ? Number(opts.uidAfter) : undefined,
     });
-    console.log(renderMessageTable(messages));
+    if (opts.json) {
+      console.log(JSON.stringify(messages, null, 2));
+    } else {
+      console.log(renderMessageTable(messages));
+    }
   } finally {
     await provider.close();
   }
+}
+
+function parseDate(raw: string | undefined, flag: string): Date | undefined {
+  if (!raw) return undefined;
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) {
+    console.error(pc.red(`${flag}: '${raw}' is not a valid date (try YYYY-MM-DD or ISO)`));
+    process.exit(1);
+  }
+  return d;
 }

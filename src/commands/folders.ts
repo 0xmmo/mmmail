@@ -1,16 +1,13 @@
 import pc from "picocolors";
 import { resolveAccount } from "../config/store.js";
 import { getProvider } from "../providers/index.js";
-import { renderMessage } from "../ui/pager.js";
 
-interface ReadOpts {
-  folder?: string;
+interface FoldersOpts {
   account?: string;
   json?: boolean;
-  includeHtml?: boolean;
 }
 
-export async function runRead(id: string, opts: ReadOpts): Promise<void> {
+export async function runFolders(opts: FoldersOpts): Promise<void> {
   const account = await resolveAccount(opts.account);
   if (!account) {
     console.error(pc.red("No account configured. Run `mmm init`."));
@@ -18,12 +15,11 @@ export async function runRead(id: string, opts: ReadOpts): Promise<void> {
   }
   const provider = await getProvider(account);
   try {
-    const msg = await provider.fetch(id, { folder: opts.folder });
-    if (!opts.includeHtml) msg.html = undefined;
+    const folders = await provider.folders();
     if (opts.json) {
-      console.log(JSON.stringify(msg, null, 2));
+      console.log(JSON.stringify(folders, null, 2));
     } else {
-      console.log(renderMessage(msg));
+      for (const f of folders) console.log(f);
     }
   } finally {
     await provider.close();
