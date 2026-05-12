@@ -79,6 +79,17 @@ addCmd
   });
 
 addCmd
+  .command("microsoft")
+  .description("Add a Microsoft account (Outlook.com / M365) via OAuth (loopback, PKCE)")
+  .option("--client-id <id>", "Microsoft Entra app (client) ID (else read from keychain)")
+  .requiredOption("--email <addr>", "Microsoft email address to authorize")
+  .option("--json", "output JSON")
+  .action(async (opts) => {
+    const { runAddMicrosoft } = await import("./commands/add.js");
+    await runAddMicrosoft(opts);
+  });
+
+addCmd
   .command("imap")
   .description("Add a generic IMAP/SMTP account")
   .requiredOption("--email <addr>", "email address (also used as IMAP/SMTP user)")

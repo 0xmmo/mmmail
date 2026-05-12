@@ -1,54 +1,57 @@
+import { ImapFlow } from "imapflow";
+import nodemailer from "nodemailer";
 import type { AccountConfig } from "../config/store.js";
-import type {
-  ListOptions,
-  MessageBody,
-  MessageSummary,
-  Provider,
-  SearchOptions,
-  SendInput,
-  SendResult,
-  SetFlagsInput,
-} from "./index.js";
+import { getSecret, setSecret } from "../auth/secrets.js";
+import {
+  DEFAULT_CLIENT_ID,
+  refreshAccessToken,
+} from "../auth/oauth-microsoft.js";
+import { MailboxBase } from "./_base.js";
 
-export class MicrosoftProvider implements Provider {
-  static async connect(_account: AccountConfig): Promise<MicrosoftProvider> {
-    throw new Error(
-      "Microsoft provider is not yet implemented in this build. Use generic IMAP for now.",
-    );
-  }
-  list(_opts: ListOptions): Promise<MessageSummary[]> {
-    throw new Error("not implemented");
-  }
-  fetch(_id: string, _opts?: { folder?: string }): Promise<MessageBody> {
-    throw new Error("not implemented");
-  }
-  send(_input: SendInput): Promise<SendResult> {
-    throw new Error("not implemented");
-  }
-  search(_query: string, _opts?: SearchOptions): Promise<MessageSummary[]> {
-    throw new Error("not implemented");
-  }
-  folders(): Promise<string[]> {
-    throw new Error("not implemented");
-  }
-  setFlags(
-    _id: string,
-    _flags: SetFlagsInput,
-    _opts?: { folder?: string },
-  ): Promise<void> {
-    throw new Error("not implemented");
-  }
-  move(
-    _id: string,
-    _dest: string,
-    _opts?: { folder?: string },
-  ): Promise<void> {
-    throw new Error("not implemented");
-  }
-  del(_id: string, _opts?: { folder?: string }): Promise<void> {
-    throw new Error("not implemented");
-  }
-  close(): Promise<void> {
-    return Promise.resolve();
+export class MicrosoftProvider extends MailboxBase {
+  static async connect(account: AccountConfig): Promise<MicrosoftProvider> {
+    if (account.kind !== "microsoft") {
+      throw new Error(
+        `MicrosoftProvider cannot handle account kind ${account.kind}`,
+      );
+    }
+    const clientId =
+      (await getSecret("oauth-client-id", account.email)) ||
+      DEFAULT_CLIENT_ID;
+    const refreshToken = await getSecret("oauth-refresh", account.email);
+    if (!clientId || !refreshToken) {
+      throw new Error(
+        `Microsoft credentials missing for ${account.email}. Run \`mmm init\` to authorize.`,
+      );
+    }
+
+    const refreshed = await refreshAccessToken({ clientId, refreshToken });
+    // Microsoft rotates the refresh token on every refresh — persist it.
+    if (refreshed.refreshToken !== refreshToken) {
+      await setSecret("oauth-refresh", account.email, refreshed.refreshToken);
+    }
+
+    const client = new ImapFlow({
+      host: "outlook.office365.com",
+      port: 993,
+      secure: true,
+      auth: { user: account.email, accessToken: refreshed.accessToken },
+      logger: false,
+    });
+    await client.connect();
+
+    const smtp = nodemailer.createTransport({
+      host: "smtp.office365.com",
+      port: 587,
+      secure: false,
+      requireTLS: true,
+      auth: {
+        type: "OAuth2",
+        user: account.email,
+        accessToken: refreshed.accessToken,
+      },
+    });
+
+    return new MicrosoftProvider(account.email, client, smtp);
   }
 }

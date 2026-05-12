@@ -35,6 +35,8 @@ Non-interactive / agent (every data command also takes `--json`):
 mmm setup google                                       # print Google OAuth setup steps
 mmm add google --email me@gmail.com \
   --credentials-file ./client_secret.json              # auth via printed URL
+mmm add microsoft --email me@outlook.com               # uses mmmail's built-in Entra app
+# (or pass --client-id <id> to use your own Entra app)
 mmm add imap --email me@example.com --preset fastmail \
   --password-stdin                                     # piped password
 mmm doctor --json                                      # health check, exits 1 on failure
@@ -50,7 +52,7 @@ Account metadata lives in `~/.config/mmmail/config.json` (mode 0600). Passwords,
 | Provider | Status | Auth |
 |---|---|---|
 | Google | ✅ supported | OAuth 2.0 (loopback redirect) |
-| Microsoft | 🚧 stubbed for now | OAuth 2.0 + Microsoft Graph (planned) |
+| Microsoft (Outlook.com / M365) | ✅ supported | OAuth 2.0 + PKCE (loopback redirect) |
 | Generic IMAP / SMTP | ✅ supported | App password (stored in OS keychain) |
 | Fastmail / iCloud / Yahoo | ✅ supported | App password (server presets included) |
 
@@ -72,6 +74,36 @@ You'll do this once per machine. Subsequent Gmail accounts skip the setup and on
 
 Your app stays in **testing mode** (no Google verification needed) — that's fine for personal use. Up to 100 test users can authorize.
 
+### Microsoft (Outlook.com / M365)
+
+`mmm` ships with a built-in Microsoft Entra app (multi-tenant + personal accounts, public client + PKCE, no secret). The default flow needs **zero Azure setup**:
+
+```sh
+mmm add microsoft --email me@outlook.com
+```
+
+You'll see "mmmail" on the consent screen, approve, and you're done.
+
+> **Work/school accounts:** Many M365 tenants disable SMTP AUTH by default. If `mmm send` fails with `SmtpClientAuthentication is disabled`, ask your admin to enable [authenticated client SMTP submission](https://learn.microsoft.com/en-us/exchange/clients-and-mobile-in-exchange-online/authenticated-client-smtp-submission) for your mailbox.
+
+#### Optional: register your own Entra app
+
+If you'd prefer to authorize through an app you own — typical for M365 tenants where admins require you-owned apps — register your own and pass `--client-id`:
+
+1. Register a new app — https://entra.microsoft.com/#view/Microsoft_AAD_RegisteredApps/CreateApplicationBlade/quickStartType~/null/isMSAApp~/false
+   - Account types: **Accounts in any organizational directory and personal Microsoft accounts**
+   - Leave the Redirect URI blank — you'll set it next
+2. Entra admin center → **App registrations** → click your new app → left sidebar **Manage → Authentication**
+3. On the **Redirect URI configuration** tab, click **+ Add Redirect URI** → in the "Select a platform" panel, pick **Mobile and desktop applications** (Windows, UWP, Console, IoT…) → **Select**. Enter `http://localhost` as the URI → **Configure**
+4. Same Authentication page → **Settings** tab → toggle **Allow public client flows** to **Yes** → **Save**
+5. Left sidebar of your app → **Overview** → copy **Application (client) ID**. No client secret is needed.
+
+```sh
+mmm add microsoft --email me@outlook.com --client-id <your-id>
+```
+
+`mmm init` and `mmm setup microsoft` walk through the same steps interactively.
+
 ## Commands
 
 ### Account management
@@ -84,11 +116,14 @@ mmm accounts [--json]                list configured accounts
 mmm default <email>                  set the default account
 mmm remove <email>                   remove an account + its keychain entries
 
-mmm setup [google]                   print OAuth setup instructions
+mmm setup [google|microsoft]         print OAuth setup instructions
 mmm add google --email <addr> \
     [--credentials-file <path>]      auth via Google's downloaded JSON
     [--client-id <id> --client-secret <secret>]
     [--client-secret-stdin]
+mmm add microsoft --email <addr> \
+    [--client-id <id>]               default: mmmail's built-in Entra app (PKCE);
+                                     pass --client-id to use your own app
 mmm add imap --email <addr> \
     [--preset fastmail|icloud|yahoo  | --imap-host ... --imap-port ... --smtp-host ... --smtp-port ...] \
     [--password-stdin | --password-env <VAR>] \

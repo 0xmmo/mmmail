@@ -3,10 +3,12 @@ import pc from "picocolors";
 import {
   addGoogleAccount,
   addImapAccount,
+  addMicrosoftAccount,
   PRESETS,
   type ProviderPreset,
 } from "./init.js";
 import { getProviderSecret } from "../auth/secrets.js";
+import { DEFAULT_CLIENT_ID as DEFAULT_MS_CLIENT_ID } from "../auth/oauth-microsoft.js";
 
 interface AddGoogleOpts {
   clientId?: string;
@@ -119,6 +121,55 @@ async function readStdin(): Promise<string> {
     chunks.push(Buffer.from(chunk as Buffer | string));
   }
   return Buffer.concat(chunks).toString("utf8");
+}
+
+interface AddMicrosoftOpts {
+  clientId?: string;
+  email: string;
+  json?: boolean;
+}
+
+export async function runAddMicrosoft(opts: AddMicrosoftOpts): Promise<void> {
+  const clientId = opts.clientId ?? DEFAULT_MS_CLIENT_ID;
+
+  if (!clientId) {
+    console.error(
+      pc.red(
+        "No Microsoft OAuth client ID available (no built-in client baked into this build).",
+      ),
+    );
+    console.error(
+      pc.dim(
+        "  Either pass --client-id <id> (see `mmm setup microsoft` for how to register one),\n" +
+          "  or use an mmmail build that ships a default client.",
+      ),
+    );
+    process.exit(1);
+  }
+
+  if (!/.+@.+\..+/.test(opts.email)) {
+    console.error(pc.red(`Invalid email: ${opts.email}`));
+    process.exit(1);
+  }
+
+  if (!opts.json) console.log(pc.dim(`Authorizing ${opts.email}...`));
+  await addMicrosoftAccount({
+    clientId,
+    email: opts.email,
+    onAuthUrl: (url) => {
+      if (opts.json) {
+        console.error(JSON.stringify({ authUrl: url }));
+      } else {
+        console.log(pc.bold("Open this URL in your browser to authorize:"));
+        console.log(`  ${pc.underline(url)}`);
+      }
+    },
+  });
+  if (opts.json) {
+    console.log(JSON.stringify({ ok: true, email: opts.email }, null, 2));
+  } else {
+    console.log(pc.green(`✓ Authorized ${opts.email}`));
+  }
 }
 
 interface AddImapOpts {

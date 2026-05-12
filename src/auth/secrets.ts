@@ -69,5 +69,6 @@ export async function deleteAllForAccount(email: string): Promise<void> {
     deleteSecret("imap-password", email),
     deleteSecret("smtp-password", email),
     deleteSecret("oauth-refresh", email),
+    deleteSecret("oauth-client-id", email),
   ]);
 }

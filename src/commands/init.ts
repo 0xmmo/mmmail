@@ -11,11 +11,16 @@ import {
 } from "../config/store.js";
 import {
   deleteAllForAccount,
+  deleteSecret,
   getProviderSecret,
   setProviderSecret,
   setSecret,
 } from "../auth/secrets.js";
 import { runConsentFlow } from "../auth/oauth-google.js";
+import {
+  DEFAULT_CLIENT_ID,
+  runConsentFlow as runMsConsentFlow,
+} from "../auth/oauth-microsoft.js";
 
 export interface ProviderPreset {
   imap: { host: string; port: number; secure: boolean };
@@ -89,6 +94,53 @@ export function printGoogleSetupSteps(): void {
   }
 }
 
+export const MICROSOFT_SETUP_STEPS: GoogleSetupStep[] = [
+  {
+    title: "Register a new app",
+    url: "https://entra.microsoft.com/#view/Microsoft_AAD_RegisteredApps/CreateApplicationBlade/quickStartType~/null/isMSAApp~/false",
+    detail:
+      "Name it (e.g. 'mmmail'). Supported account types: 'Accounts in any organizational directory and personal Microsoft accounts'. Leave the Redirect URI blank — you'll set it next.",
+  },
+  {
+    title: "Open the app's Authentication page",
+    detail:
+      "Entra admin center → App registrations → click your new app → left sidebar Manage → Authentication. (Not the directory-wide 'Authentication methods' page.)",
+  },
+  {
+    title: "Add the redirect URI",
+    detail:
+      "On the 'Redirect URI configuration' tab, click '+ Add Redirect URI'. In the 'Select a platform' panel, pick the 'Mobile and desktop applications' card (Windows, UWP, Console, IoT…) → Select. Enter `http://localhost` as the URI → Configure.",
+  },
+  {
+    title: "Allow public client flows",
+    detail:
+      "On the same Authentication page, click the 'Settings' tab → toggle 'Allow public client flows' to Yes → Save.",
+  },
+  {
+    title: "Copy the Application (client) ID",
+    detail:
+      "Left sidebar of your app → Overview → copy 'Application (client) ID'. No client secret is needed — mmm uses PKCE.",
+  },
+  {
+    title: "Work/school accounts only: confirm SMTP AUTH is enabled",
+    url: "https://learn.microsoft.com/en-us/exchange/clients-and-mobile-in-exchange-online/authenticated-client-smtp-submission",
+    detail:
+      "Many M365 tenants disable SMTP AUTH by default. If `mmm send` fails with 'SmtpClientAuthentication is disabled', ask your admin to enable it for your mailbox.",
+  },
+];
+
+export function printMicrosoftSetupSteps(): void {
+  console.log(
+    pc.bold("Microsoft Entra app setup") + pc.dim(" (~2 min, one-time)"),
+  );
+  console.log("");
+  for (const [i, step] of MICROSOFT_SETUP_STEPS.entries()) {
+    console.log(pc.cyan(`  Step ${i + 1}: ${step.title}`));
+    if (step.url) console.log(`          ${pc.underline(step.url)}`);
+    if (step.detail) console.log(pc.dim(`          ${step.detail}`));
+  }
+}
+
 export async function addImapAccount(opts: {
   email: string;
   imap: { host: string; port: number; secure: boolean };
@@ -125,6 +177,31 @@ export async function addGoogleAccount(opts: {
   });
   await setSecret("oauth-refresh", opts.email, tokens.refreshToken);
   const account: OAuthAccountConfig = { kind: "google", email: opts.email };
+  await upsertAccount(account);
+}
+
+export async function addMicrosoftAccount(opts: {
+  clientId: string;
+  email: string;
+  onAuthUrl?: (url: string) => void;
+}): Promise<void> {
+  const tokens = await runMsConsentFlow({
+    clientId: opts.clientId,
+    loginHint: opts.email,
+    onAuthUrl: opts.onAuthUrl,
+  });
+  // Pin the client_id per-account: refresh tokens are scoped to the client
+  // that obtained them, so each account must remember which client_id
+  // authorized it. The default (mmmail's built-in) is left unstored so
+  // future bake-ins of DEFAULT_CLIENT_ID flow through to all accounts that
+  // were authorized via it.
+  if (opts.clientId !== DEFAULT_CLIENT_ID) {
+    await setSecret("oauth-client-id", opts.email, opts.clientId);
+  } else {
+    await deleteSecret("oauth-client-id", opts.email);
+  }
+  await setSecret("oauth-refresh", opts.email, tokens.refreshToken);
+  const account: OAuthAccountConfig = { kind: "microsoft", email: opts.email };
   await upsertAccount(account);
 }
 
@@ -194,6 +271,8 @@ async function printNonInteractiveHelp(): Promise<void> {
   console.log(`  ${pc.cyan("mmm setup google")}                                ${pc.dim("# print Google OAuth setup steps")}`);
   console.log(`  ${pc.cyan("mmm add google --email <you@gmail.com> \\")}`);
   console.log(`    ${pc.cyan("--client-id <id> --client-secret <secret>")}    ${pc.dim("# authorize via loopback URL")}`);
+  console.log(`  ${pc.cyan("mmm add microsoft --email <you@outlook.com>")}     ${pc.dim("# uses mmmail's built-in Entra app")}`);
+  console.log(`  ${pc.cyan("mmm add microsoft --email <addr> --client-id <id>")} ${pc.dim("# bring your own Entra app")}`);
   console.log(`  ${pc.cyan("mmm add imap --email <addr> --preset fastmail \\")}`);
   console.log(`    ${pc.cyan("--password-env IMAP_PW")}                       ${pc.dim("# (or --password-stdin)")}`);
   console.log("");
@@ -235,13 +314,17 @@ async function runAdd(): Promise<boolean> {
     message: "Provider",
     choices: [
       { name: "Google (OAuth)", value: "google" },
-      { name: "Microsoft (OAuth) — coming soon", value: "microsoft", disabled: true },
+      { name: "Microsoft (OAuth)", value: "microsoft" },
       { name: "Generic IMAP/SMTP (app password)", value: "imap" },
     ],
   });
 
   if (kind === "google") {
     await runGoogleInit();
+    return true;
+  }
+  if (kind === "microsoft") {
+    await runMicrosoftInit();
     return true;
   }
   if (kind === "imap") {
@@ -429,4 +512,67 @@ async function runGoogleInit(): Promise<void> {
 
   console.log(pc.green(`✓ Authorized ${email}`));
   console.log(pc.dim(`  Try: mmm list`));
+}
+
+async function runMicrosoftInit(): Promise<void> {
+  const clientId = await resolveMicrosoftClientIdInteractive();
+  if (!clientId) return;
+
+  const email = await input({
+    message: "What is your Microsoft email address?",
+    validate: (v) => /.+@.+\..+/.test(v) || "Enter a valid email",
+  });
+
+  console.log(pc.dim("  Opening browser to authorize..."));
+  await addMicrosoftAccount({
+    clientId,
+    email,
+    onAuthUrl: (url) => {
+      console.log(pc.dim(`  If the browser doesn't open, visit:\n  ${url}`));
+    },
+  });
+
+  console.log(pc.green(`✓ Authorized ${email}`));
+  console.log(pc.dim(`  Try: mmm list`));
+}
+
+async function resolveMicrosoftClientIdInteractive(): Promise<string | undefined> {
+  // No built-in client baked into this build — only the own-app path is viable.
+  if (!DEFAULT_CLIENT_ID) {
+    return await promptForOwnMicrosoftClientId();
+  }
+
+  const which = await select({
+    message: "OAuth client",
+    choices: [
+      {
+        name: "Use mmmail's built-in client (recommended — no Azure setup)",
+        value: "default",
+      },
+      {
+        name: "Register your own Microsoft Entra app (advanced)",
+        value: "own",
+      },
+    ],
+  });
+  if (which === "default") return DEFAULT_CLIENT_ID;
+  return await promptForOwnMicrosoftClientId();
+}
+
+async function promptForOwnMicrosoftClientId(): Promise<string> {
+  console.log("");
+  console.log(
+    pc.bold("  Register your own Microsoft Entra app (~2 min, one-time)"),
+  );
+  console.log("");
+  printMicrosoftSetupSteps();
+  console.log("");
+  await confirm({
+    message: "Press enter when you have your Application (client) ID ready",
+    default: true,
+  });
+  return await input({
+    message: "Application (client) ID",
+    validate: (v) => v.trim().length > 0 || "Enter a non-empty client ID",
+  });
 }
