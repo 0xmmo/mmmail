@@ -452,7 +452,9 @@ function printDetectedServers(d: DiscoverResult): void {
       ? "Mozilla autoconfig"
       : d.source === "autoconfig"
         ? "domain autoconfig"
-        : "DNS SRV records";
+        : d.source === "mx"
+          ? "MX record"
+          : "DNS SRV records";
   const provider = d.displayName ? ` — ${d.displayName}` : "";
   console.log(pc.green(`  ✓ Detected via ${sourceLabel}${provider}`));
   console.log(

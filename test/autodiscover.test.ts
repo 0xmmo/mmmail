@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseAutoconfigXml } from "../src/auth/autodiscover.js";
+import { matchMxProvider, parseAutoconfigXml } from "../src/auth/autodiscover.js";
 
 const FASTMAIL_XML = `<?xml version="1.0" encoding="UTF-8"?>
 <clientConfig version="1.1">
@@ -66,5 +66,28 @@ describe("parseAutoconfigXml", () => {
   it("returns null for unparseable input", () => {
     expect(parseAutoconfigXml("<html>not xml</html>")).toBeNull();
     expect(parseAutoconfigXml("")).toBeNull();
+  });
+});
+
+describe("matchMxProvider", () => {
+  it.each([
+    ["mx1.privateemail.com", "Namecheap PrivateEmail", "mail.privateemail.com"],
+    ["in1-smtp.messagingengine.com", "Fastmail", "imap.fastmail.com"],
+    ["acme-com.mail.protection.outlook.com", "Microsoft 365", "outlook.office365.com"],
+    ["aspmx.l.google.com", "Google Workspace", "imap.gmail.com"],
+    ["mx.zoho.com", "Zoho Mail", "imap.zoho.com"],
+    ["mx.yandex.net", "Yandex Mail", "imap.yandex.com"],
+    ["mx01.mail.icloud.com", "iCloud Mail", "imap.mail.me.com"],
+    ["MX1.PRIVATEEMAIL.COM.", "Namecheap PrivateEmail", "mail.privateemail.com"],
+  ])("matches %s → %s", (mx, displayName, imapHost) => {
+    const r = matchMxProvider(mx);
+    expect(r).not.toBeNull();
+    expect(r!.displayName).toBe(displayName);
+    expect(r!.preset.imap.host).toBe(imapHost);
+  });
+
+  it("returns null for unknown MX hosts", () => {
+    expect(matchMxProvider("mail.some-random-host.example")).toBeNull();
+    expect(matchMxProvider("")).toBeNull();
   });
 });

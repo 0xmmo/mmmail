@@ -1,13 +1,84 @@
-import { resolveSrv } from "node:dns/promises";
+import { resolveMx, resolveSrv } from "node:dns/promises";
 import type { ProviderPreset } from "../commands/init.js";
 
 const DEFAULT_TIMEOUT_MS = 4000;
 
 export interface DiscoverResult {
   preset: ProviderPreset;
-  source: "ispdb" | "autoconfig" | "srv";
+  source: "ispdb" | "autoconfig" | "mx" | "srv";
   displayName?: string;
 }
+
+interface MxProvider {
+  match: (mx: string) => boolean;
+  displayName: string;
+  preset: ProviderPreset;
+}
+
+const MX_PROVIDERS: MxProvider[] = [
+  {
+    match: (mx) => mx.endsWith(".privateemail.com") || mx === "privateemail.com",
+    displayName: "Namecheap PrivateEmail",
+    preset: {
+      imap: { host: "mail.privateemail.com", port: 993, secure: true },
+      smtp: { host: "mail.privateemail.com", port: 465, secure: true },
+    },
+  },
+  {
+    match: (mx) => mx.endsWith(".messagingengine.com"),
+    displayName: "Fastmail",
+    preset: {
+      imap: { host: "imap.fastmail.com", port: 993, secure: true },
+      smtp: { host: "smtp.fastmail.com", port: 465, secure: true },
+    },
+  },
+  {
+    match: (mx) =>
+      mx.endsWith(".mail.protection.outlook.com") ||
+      mx.endsWith(".protection.outlook.com"),
+    displayName: "Microsoft 365",
+    preset: {
+      imap: { host: "outlook.office365.com", port: 993, secure: true },
+      smtp: { host: "smtp.office365.com", port: 587, secure: false },
+    },
+  },
+  {
+    match: (mx) =>
+      mx.endsWith(".google.com") ||
+      mx.endsWith(".googlemail.com") ||
+      mx.endsWith(".aspmx.l.google.com") ||
+      mx === "aspmx.l.google.com",
+    displayName: "Google Workspace",
+    preset: {
+      imap: { host: "imap.gmail.com", port: 993, secure: true },
+      smtp: { host: "smtp.gmail.com", port: 465, secure: true },
+    },
+  },
+  {
+    match: (mx) => mx.endsWith(".zoho.com") || mx.endsWith(".zohomail.com"),
+    displayName: "Zoho Mail",
+    preset: {
+      imap: { host: "imap.zoho.com", port: 993, secure: true },
+      smtp: { host: "smtp.zoho.com", port: 465, secure: true },
+    },
+  },
+  {
+    match: (mx) => mx.endsWith(".yandex.net") || mx.endsWith(".yandex.ru"),
+    displayName: "Yandex Mail",
+    preset: {
+      imap: { host: "imap.yandex.com", port: 993, secure: true },
+      smtp: { host: "smtp.yandex.com", port: 465, secure: true },
+    },
+  },
+  {
+    match: (mx) => mx.endsWith(".mail.me.com") || mx.endsWith(".icloud.com"),
+    displayName: "iCloud Mail",
+    preset: {
+      imap: { host: "imap.mail.me.com", port: 993, secure: true },
+      smtp: { host: "smtp.mail.me.com", port: 587, secure: false },
+    },
+  },
+];
 
 interface ServerSpec {
   host: string;
@@ -37,9 +108,10 @@ export async function discoverMailServers(
   }
 
   try {
-    const [ispdb, domainCfg, srv] = await Promise.allSettled([
+    const [ispdb, domainCfg, mx, srv] = await Promise.allSettled([
       fetchIspdb(domain, ctrl.signal),
       fetchDomainAutoconfig(domain, email, ctrl.signal),
+      lookupByMx(domain),
       fetchSrv(domain),
     ]);
 
@@ -51,6 +123,10 @@ export async function discoverMailServers(
     if (domainVal) {
       return { preset: toPreset(domainVal), source: "autoconfig", displayName: domainVal.displayName };
     }
+    const mxVal = mx.status === "fulfilled" ? mx.value : null;
+    if (mxVal) {
+      return { preset: mxVal.preset, source: "mx", displayName: mxVal.displayName };
+    }
     const srvVal = srv.status === "fulfilled" ? srv.value : null;
     if (srvVal) {
       return { preset: toPreset(srvVal), source: "srv" };
@@ -59,6 +135,34 @@ export async function discoverMailServers(
   } finally {
     clearTimeout(timer);
   }
+}
+
+async function lookupByMx(domain: string): Promise<{ preset: ProviderPreset; displayName: string } | null> {
+  let records: { exchange: string; priority: number }[];
+  try {
+    records = await resolveMx(domain);
+  } catch {
+    return null;
+  }
+  if (records.length === 0) return null;
+  records.sort((a, b) => a.priority - b.priority);
+  for (const rec of records) {
+    const hit = matchMxProvider(rec.exchange);
+    if (hit) return hit;
+  }
+  return null;
+}
+
+export function matchMxProvider(
+  exchange: string,
+): { preset: ProviderPreset; displayName: string } | null {
+  const host = exchange.toLowerCase().replace(/\.$/, "");
+  for (const provider of MX_PROVIDERS) {
+    if (provider.match(host)) {
+      return { preset: provider.preset, displayName: provider.displayName };
+    }
+  }
+  return null;
 }
 
 function toPreset(r: AutoconfigResult): ProviderPreset {
