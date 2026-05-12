@@ -1,7 +1,7 @@
 {
   "name": "@0xmmo/mmmail",
-  "version": "0.6.1",
-  "description": "CLI mail client for Google, Microsoft, and IMAP",
+  "version": "0.7.0",
+  "description": "A CLI email client made for agents — Gmail, Microsoft 365, and any IMAP/SMTP host. --json everywhere.",
   "type": "module",
   "bin": {
     "mmm": "dist/cli.js"
