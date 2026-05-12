@@ -9,6 +9,7 @@ import {
 } from "./init.js";
 import { getProviderSecret } from "../auth/secrets.js";
 import { DEFAULT_CLIENT_ID as DEFAULT_MS_CLIENT_ID } from "../auth/oauth-microsoft.js";
+import { discoverMailServers } from "../auth/autodiscover.js";
 
 interface AddGoogleOpts {
   clientId?: string;
@@ -185,6 +186,7 @@ interface AddImapOpts {
   passwordEnv?: string;
   smtpPasswordStdin?: boolean;
   smtpPasswordEnv?: string;
+  autodiscover?: boolean;
   json?: boolean;
 }
 
@@ -194,11 +196,28 @@ export async function runAddImap(opts: AddImapOpts): Promise<void> {
     process.exit(1);
   }
 
-  const preset = resolveImapPreset(opts);
+  let preset = resolveImapPreset(opts);
+  if (!preset && opts.autodiscover !== false) {
+    if (!opts.json) {
+      console.error(pc.dim(`Looking up mail servers for ${opts.email.split("@")[1]}…`));
+    }
+    const discovered = await discoverMailServers(opts.email).catch(() => null);
+    if (discovered) {
+      preset = discovered.preset;
+      if (!opts.json) {
+        const p = discovered.preset;
+        console.error(
+          pc.green(
+            `✓ Auto-detected: imap ${p.imap.host}:${p.imap.port} · smtp ${p.smtp.host}:${p.smtp.port}`,
+          ),
+        );
+      }
+    }
+  }
   if (!preset) {
     console.error(
       pc.red(
-        "Need either --preset (fastmail|icloud|yahoo) or all of --imap-host/--imap-port/--smtp-host/--smtp-port.",
+        "Couldn't determine IMAP/SMTP settings. Pass --preset (fastmail|icloud|yahoo), all of --imap-host/--imap-port/--smtp-host/--smtp-port, or omit --no-autodiscover to retry auto-detection.",
       ),
     );
     process.exit(1);

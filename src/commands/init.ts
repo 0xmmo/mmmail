@@ -21,6 +21,7 @@ import {
   DEFAULT_CLIENT_ID,
   runConsentFlow as runMsConsentFlow,
 } from "../auth/oauth-microsoft.js";
+import { discoverMailServers, type DiscoverResult } from "../auth/autodiscover.js";
 
 export interface ProviderPreset {
   imap: { host: string; port: number; secure: boolean };
@@ -273,8 +274,8 @@ async function printNonInteractiveHelp(): Promise<void> {
   console.log(`    ${pc.cyan("--client-id <id> --client-secret <secret>")}    ${pc.dim("# authorize via loopback URL")}`);
   console.log(`  ${pc.cyan("mmm add microsoft --email <you@outlook.com>")}     ${pc.dim("# uses mmmail's built-in Entra app")}`);
   console.log(`  ${pc.cyan("mmm add microsoft --email <addr> --client-id <id>")} ${pc.dim("# bring your own Entra app")}`);
-  console.log(`  ${pc.cyan("mmm add imap --email <addr> --preset fastmail \\")}`);
-  console.log(`    ${pc.cyan("--password-env IMAP_PW")}                       ${pc.dim("# (or --password-stdin)")}`);
+  console.log(`  ${pc.cyan("mmm add imap --email <addr> \\")}`);
+  console.log(`    ${pc.cyan("--password-env IMAP_PW")}                       ${pc.dim("# auto-detects IMAP/SMTP from the email domain")}`);
   console.log("");
 
   console.log(pc.bold("Manage accounts"));
@@ -383,49 +384,8 @@ async function runImapInit(): Promise<void> {
     validate: (v) => /.+@.+\..+/.test(v) || "Enter a valid email",
   });
 
-  const presetKey = await select({
-    message: "Server preset",
-    choices: [
-      { name: "Fastmail", value: "fastmail" },
-      { name: "iCloud", value: "icloud" },
-      { name: "Yahoo", value: "yahoo" },
-      { name: "Custom", value: "custom" },
-    ],
-  });
-
-  let preset: ProviderPreset;
-  if (presetKey === "custom") {
-    const imapHost = await input({ message: "IMAP host (e.g. imap.example.com)" });
-    const imapPort = Number(
-      await input({ message: "IMAP port", default: "993" }),
-    );
-    const imapSecure =
-      (await select({
-        message: "IMAP TLS",
-        choices: [
-          { name: "Implicit TLS (port 993)", value: "true" },
-          { name: "STARTTLS / plain", value: "false" },
-        ],
-      })) === "true";
-    const smtpHost = await input({ message: "SMTP host" });
-    const smtpPort = Number(
-      await input({ message: "SMTP port", default: "465" }),
-    );
-    const smtpSecure =
-      (await select({
-        message: "SMTP TLS",
-        choices: [
-          { name: "Implicit TLS (port 465)", value: "true" },
-          { name: "STARTTLS (port 587)", value: "false" },
-        ],
-      })) === "true";
-    preset = {
-      imap: { host: imapHost, port: imapPort, secure: imapSecure },
-      smtp: { host: smtpHost, port: smtpPort, secure: smtpSecure },
-    };
-  } else {
-    preset = PRESETS[presetKey]!;
-  }
+  const preset = await resolveImapPresetInteractive(email);
+  if (!preset) return;
 
   const pw = await password({
     message: "App password (stored in OS keychain)",
@@ -454,6 +414,104 @@ async function runImapInit(): Promise<void> {
 
   console.log(pc.green(`✓ Saved account ${email}`));
   console.log(pc.dim(`  Try: mmm list`));
+}
+
+async function resolveImapPresetInteractive(
+  email: string,
+): Promise<ProviderPreset | undefined> {
+  const domain = email.split("@")[1] ?? "";
+
+  console.log(pc.dim(`  Looking up mail servers for ${domain}…`));
+  const discovered = await discoverMailServers(email).catch(() => null);
+
+  if (discovered) {
+    printDetectedServers(discovered);
+    const choice = await select({
+      message: "Use these settings?",
+      choices: [
+        { name: "Use detected", value: "use" },
+        { name: "Customize", value: "custom" },
+        { name: "Cancel", value: "cancel" },
+      ],
+      default: "use",
+    });
+    if (choice === "cancel") return undefined;
+    if (choice === "use") return discovered.preset;
+    return promptCustomServers(discovered.preset);
+  }
+
+  console.log(
+    pc.yellow("  Couldn't auto-detect IMAP/SMTP servers — enter them manually."),
+  );
+  return promptCustomServers();
+}
+
+function printDetectedServers(d: DiscoverResult): void {
+  const sourceLabel =
+    d.source === "ispdb"
+      ? "Mozilla autoconfig"
+      : d.source === "autoconfig"
+        ? "domain autoconfig"
+        : "DNS SRV records";
+  const provider = d.displayName ? ` — ${d.displayName}` : "";
+  console.log(pc.green(`  ✓ Detected via ${sourceLabel}${provider}`));
+  console.log(
+    pc.dim(
+      `    IMAP  ${d.preset.imap.host}:${d.preset.imap.port} (${d.preset.imap.secure ? "SSL" : "STARTTLS/plain"})`,
+    ),
+  );
+  console.log(
+    pc.dim(
+      `    SMTP  ${d.preset.smtp.host}:${d.preset.smtp.port} (${d.preset.smtp.secure ? "SSL" : "STARTTLS/plain"})`,
+    ),
+  );
+}
+
+async function promptCustomServers(
+  defaults?: ProviderPreset,
+): Promise<ProviderPreset> {
+  const imapHost = await input({
+    message: "IMAP host (e.g. imap.example.com)",
+    default: defaults?.imap.host,
+  });
+  const imapPort = Number(
+    await input({
+      message: "IMAP port",
+      default: String(defaults?.imap.port ?? 993),
+    }),
+  );
+  const imapSecure =
+    (await select({
+      message: "IMAP TLS",
+      choices: [
+        { name: "Implicit TLS (port 993)", value: "true" },
+        { name: "STARTTLS / plain", value: "false" },
+      ],
+      default: defaults ? String(defaults.imap.secure) : "true",
+    })) === "true";
+  const smtpHost = await input({
+    message: "SMTP host",
+    default: defaults?.smtp.host,
+  });
+  const smtpPort = Number(
+    await input({
+      message: "SMTP port",
+      default: String(defaults?.smtp.port ?? 465),
+    }),
+  );
+  const smtpSecure =
+    (await select({
+      message: "SMTP TLS",
+      choices: [
+        { name: "Implicit TLS (port 465)", value: "true" },
+        { name: "STARTTLS (port 587)", value: "false" },
+      ],
+      default: defaults ? String(defaults.smtp.secure) : "true",
+    })) === "true";
+  return {
+    imap: { host: imapHost, port: imapPort, secure: imapSecure },
+    smtp: { host: smtpHost, port: smtpPort, secure: smtpSecure },
+  };
 }
 
 async function runGoogleInit(): Promise<void> {

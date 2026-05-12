@@ -91,7 +91,7 @@ addCmd
 
 addCmd
   .command("imap")
-  .description("Add a generic IMAP/SMTP account")
+  .description("Add a generic IMAP/SMTP account (auto-discovers servers from the email domain)")
   .requiredOption("--email <addr>", "email address (also used as IMAP/SMTP user)")
   .option("--preset <name>", "use a preset: fastmail | icloud | yahoo")
   .option("--imap-host <host>", "IMAP host (e.g. imap.example.com)")
@@ -100,6 +100,7 @@ addCmd
   .option("--smtp-host <host>", "SMTP host")
   .option("--smtp-port <port>", "SMTP port (465 implicit-TLS, 587 STARTTLS)")
   .option("--smtp-tls <bool>", "SMTP implicit TLS (default true)")
+  .option("--no-autodiscover", "disable automatic IMAP/SMTP server lookup")
   .option("--password-stdin", "read IMAP/SMTP password from stdin")
   .option("--password-env <var>", "read IMAP/SMTP password from this env var")
   .option(
