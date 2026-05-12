@@ -1,6 +1,6 @@
 # mmmail
 
-A small, agent-friendly CLI mail client. Stateless commands — `list`, `read`, `send`, `reply`, `search`, `mark`, `move`, `delete` — plus attachments, for Gmail (OAuth), Microsoft (OAuth + PKCE), and any IMAP/SMTP host. Installs the `mmm` binary. `--json` on every data command.
+A CLI email client made for agents. Stateless commands — `list`, `read`, `send`, `reply`, `search`, `mark`, `move`, `delete` — plus attachments, for Gmail (OAuth), Microsoft 365 (OAuth + PKCE), and any IMAP/SMTP host. Installs the `mmm` binary. `--json` on every data command.
 
 ```sh
 npm install -g @0xmmo/mmmail

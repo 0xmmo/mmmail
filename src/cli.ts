@@ -10,7 +10,7 @@ const program = new Command();
 
 program
   .name("mmm")
-  .description("CLI mail client for Google, Microsoft, and IMAP")
+  .description("A CLI email client made for agents — Gmail, Microsoft 365, IMAP")
   .version(pkg.version)
   .action(async () => {
     const { runInit } = await import("./commands/init.js");
