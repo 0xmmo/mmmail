@@ -1,619 +1,405 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>mmm — CLI mail client</title>
-  <meta name="description" content="Stateless CLI mail client for Gmail, Microsoft 365, and any IMAP/SMTP host. list, read, send, reply, attachments, --json everywhere." />
-  <meta property="og:title" content="mmm · mmmail — CLI mail client" />
-  <meta property="og:description" content="Stateless CLI mail. Gmail, Microsoft, IMAP. --json everywhere. Attachments. Built for terminals and agents." />
-  <meta name="theme-color" content="#f1e9d8" />
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT@0,9..144,300..700,30..100;1,9..144,300..700,30..100&family=JetBrains+Mono:ital,wght@0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
-  <style>
-    :root {
-      --paper:        #f1e9d8;
-      --paper-deep:   #e9dec5;
-      --ink:          #16161a;
-      --ink-soft:     #3a3a42;
-      --ink-faint:    #6b6b73;
-      --postmark:     #a8321a;
-      --postmark-deep:#7d2614;
-      --rule:         #c8b993;
-      --stamp-blue:   #25557d;
-    }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>mmmail — CLI mail client</title>
+<meta name="description" content="A small, agent-friendly CLI mail client for Gmail (OAuth), Microsoft 365 (OAuth + PKCE), and any IMAP/SMTP host. Stateless commands, --json everywhere, attachments." />
+<meta name="author" content="Mohamed Moustafa">
+<meta property="og:title" content="mmmail — CLI mail client">
+<meta property="og:description" content="Stateless CLI mail for Gmail, Microsoft 365, and any IMAP/SMTP host. --json everywhere. Built for terminals and agents.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://blog.0xmmo.co/mmmail/">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:site" content="@0xmmo">
+<meta name="twitter:title" content="mmmail — CLI mail client">
+<meta name="twitter:description" content="Stateless CLI mail for Gmail, Microsoft 365, and any IMAP/SMTP host. --json everywhere.">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "Space Mono", monospace;
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 3rem 1.5rem;
+    line-height: 1.55;
+    font-size: 15px;
+    color: #111;
+    background: #fff;
+  }
+  a { color: #2563eb; text-decoration: none; }
+  a:hover { text-decoration: underline; }
 
-    * { box-sizing: border-box; }
+  .topnav {
+    font-size: 0.85rem;
+    margin-bottom: 2rem;
+  }
+  .topnav a { color: #666; }
+  .topnav a:hover { color: #111; text-decoration: underline; }
 
-    html, body {
-      margin: 0; padding: 0;
-      background: var(--paper);
-      color: var(--ink);
-      font-family: "Fraunces", Georgia, serif;
-      font-variation-settings: "opsz" 14, "SOFT" 50;
-      -webkit-font-smoothing: antialiased;
-      text-rendering: optimizeLegibility;
-    }
-    body {
-      background:
-        radial-gradient(900px 600px at 100% -10%, rgba(168,50,26,0.04), transparent 60%),
-        var(--paper);
-      background-attachment: fixed;
-      min-height: 100vh;
-    }
-    body::after {
-      content: "";
-      position: fixed; left: 0; top: 0; bottom: 0; width: 6px;
-      background: repeating-linear-gradient(
-        45deg,
-        var(--postmark) 0 5px,
-        transparent 5px 10px,
-        var(--ink) 10px 15px,
-        transparent 15px 20px
-      );
-      opacity: 0.7;
-      z-index: 2;
-    }
+  .eyebrow {
+    font-size: 0.78rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #888;
+    margin-bottom: 0.4rem;
+  }
+  h1.name {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+    color: #111;
+  }
+  .lede {
+    margin-bottom: 1.5rem;
+    color: #333;
+  }
+  .lede code { background: #f3f4f6; padding: 1px 5px; border-radius: 2px; font-size: 0.92em; }
 
-    .wrap {
-      max-width: 980px;
-      margin: 0 auto;
-      padding: 0 28px 0 40px;
-      position: relative;
-      z-index: 5;
-    }
+  .install {
+    display: inline-flex;
+    align-items: stretch;
+    background: #111;
+    color: #f5f5f5;
+    font-family: inherit;
+    margin-bottom: 0.5rem;
+    max-width: 100%;
+  }
+  .install .prompt {
+    padding: 0.7rem 0.5rem 0.7rem 0.9rem;
+    color: #888;
+    border-right: 1px dashed rgba(245,245,245,0.2);
+  }
+  .install .cmd {
+    padding: 0.7rem 1rem;
+    font-size: 0.85rem;
+    white-space: nowrap;
+  }
+  .install .copy {
+    padding: 0 0.9rem;
+    background: transparent;
+    border: none;
+    border-left: 1px dashed rgba(245,245,245,0.2);
+    color: #f5f5f5;
+    font-family: inherit;
+    font-size: 0.72rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background 140ms ease;
+  }
+  .install .copy:hover, .install .copy.ok { background: #2563eb; }
+  .req {
+    display: block;
+    font-size: 0.78rem;
+    color: #888;
+    margin: 0.4rem 0 2.6rem;
+  }
+  .req code { background: #f3f4f6; padding: 1px 4px; font-size: 0.92em; }
 
-    /* ─── Header bar ────────────────────────────────────── */
-    header.top {
-      display: flex;
-      align-items: baseline;
-      justify-content: space-between;
-      gap: 24px;
-      padding: 22px 0 16px;
-      border-bottom: 1px solid var(--rule);
-      flex-wrap: wrap;
-      font-family: "JetBrains Mono", ui-monospace, monospace;
-      font-size: 12px;
-      letter-spacing: 0.04em;
-      color: var(--ink-soft);
-    }
-    header.top .brand {
-      font-family: "Fraunces", serif;
-      font-style: italic;
-      font-size: 22px;
-      font-variation-settings: "opsz" 36, "SOFT" 80;
-      color: var(--ink);
-      letter-spacing: -0.01em;
-    }
-    header.top .brand em { color: var(--postmark); }
-    header.top .meta {
-      font-size: 11.5px;
-      letter-spacing: 0.16em;
-      text-transform: uppercase;
-      color: var(--ink-faint);
-    }
-    header.top .meta b { color: var(--postmark); font-weight: 500; }
-    header.top nav { margin-left: auto; }
-    header.top nav a {
-      color: var(--ink-soft);
-      text-decoration: none;
-      margin-left: 18px;
-      border-bottom: 1px dotted transparent;
-      transition: color 140ms ease, border-color 140ms ease;
-    }
-    header.top nav a:hover { color: var(--ink); border-bottom-color: var(--ink); }
+  .toc {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 0.9rem;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #888;
+    margin-bottom: 2.4rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #ddd;
+  }
+  .toc a { color: #555; }
+  .toc a:hover { color: #111; text-decoration: underline; }
+  .toc .sep { color: #ccc; }
 
-    /* ─── Intro & install row ───────────────────────────── */
-    .intro {
-      padding: 36px 0 18px;
-      max-width: 760px;
-    }
-    .intro h1 {
-      font-family: "Fraunces", serif;
-      font-style: italic;
-      font-variation-settings: "opsz" 72, "SOFT" 60, "wght" 400;
-      font-weight: 400;
-      font-size: clamp(34px, 4.4vw, 50px);
-      line-height: 1.06;
-      letter-spacing: -0.02em;
-      margin: 0 0 14px;
-    }
-    .intro h1 b {
-      font-style: normal;
-      color: var(--postmark);
-      font-weight: 400;
-      font-variation-settings: "opsz" 72, "SOFT" 30;
-    }
-    .intro p.lede {
-      font-family: "Fraunces", serif;
-      font-variation-settings: "opsz" 22;
-      font-size: 17.5px;
-      line-height: 1.55;
-      color: var(--ink-soft);
-      margin: 0 0 22px;
-      font-weight: 350;
-    }
+  section { margin-bottom: 2.6rem; }
+  h2 {
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid #ddd;
+    padding-bottom: 0.5rem;
+  }
+  h3 {
+    font-size: 0.92rem;
+    font-weight: 700;
+    margin: 1.5rem 0 0.6rem;
+  }
+  p { margin: 0 0 0.9rem; }
+  ul { list-style: none; }
+  li { margin-bottom: 0.55rem; }
+  .meta { display: block; color: #888; font-size: 0.8rem; }
 
-    .install {
-      display: inline-flex;
-      align-items: stretch;
-      background: var(--ink);
-      color: var(--paper);
-      font-family: "JetBrains Mono", monospace;
-      box-shadow: 4px 4px 0 var(--postmark);
-      max-width: 100%;
-      margin-bottom: 4px;
-    }
-    .install .prompt {
-      padding: 12px 12px 12px 16px;
-      color: var(--postmark);
-      border-right: 1px dashed rgba(241,233,216,0.22);
-      font-weight: 500;
-    }
-    .install .cmd {
-      padding: 12px 18px;
-      font-size: 14px;
-      white-space: nowrap;
-    }
-    .install .copy {
-      padding: 0 14px;
-      background: transparent;
-      border: none;
-      border-left: 1px dashed rgba(241,233,216,0.22);
-      color: var(--paper);
-      font-family: "JetBrains Mono", monospace;
-      font-size: 10.5px;
-      letter-spacing: 0.16em;
-      text-transform: uppercase;
-      cursor: pointer;
-      transition: background 140ms ease;
-    }
-    .install .copy:hover, .install .copy.ok { background: var(--postmark); }
-    .install + .req {
-      display: block;
-      margin: 8px 0 0;
-      font-family: "JetBrains Mono", monospace;
-      font-size: 11px;
-      color: var(--ink-faint);
-      letter-spacing: 0.04em;
-    }
+  code { background: #f3f4f6; padding: 1px 5px; border-radius: 2px; font-size: 0.92em; }
+  pre {
+    background: #111;
+    color: #f5f5f5;
+    padding: 1rem 1.1rem;
+    margin: 0.8rem 0 1.2rem;
+    overflow-x: auto;
+    font-size: 0.82rem;
+    line-height: 1.55;
+    border-radius: 2px;
+  }
+  pre code { background: transparent; padding: 0; color: inherit; font-size: inherit; }
+  pre .pr { color: #6ea8fe; }
+  pre .cm { color: #888; font-style: italic; }
+  pre .ar { color: #d8b86b; }
+  pre .fl { color: #c4b9a1; }
 
-    /* ─── Section / page TOC ────────────────────────────── */
-    .toc {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px 14px;
-      padding: 18px 0 14px;
-      border-top: 1px solid var(--rule);
-      border-bottom: 1px solid var(--rule);
-      margin: 28px 0 8px;
-      font-family: "JetBrains Mono", monospace;
-      font-size: 11px;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-    }
-    .toc a {
-      color: var(--ink-soft);
-      text-decoration: none;
-      border-bottom: 1px dotted transparent;
-      padding-bottom: 1px;
-    }
-    .toc a:hover { color: var(--postmark); border-bottom-color: var(--postmark); }
-    .toc .sep { color: var(--ink-faint); }
+  details.setup {
+    border: 1px solid #ddd;
+    margin: 0.5rem 0;
+  }
+  details.setup[open] { border-color: #111; }
+  details.setup > summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 0.7rem 1rem;
+    font-size: 0.82rem;
+    color: #2563eb;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+  details.setup > summary::-webkit-details-marker { display: none; }
+  details.setup > summary::before {
+    content: "+";
+    font-weight: 700;
+    color: #888;
+    width: 0.8rem;
+  }
+  details.setup[open] > summary::before { content: "−"; }
+  details.setup .body {
+    padding: 0 1rem 1rem;
+    color: #333;
+  }
+  details.setup .body p { margin: 0.4rem 0 0.7rem; }
+  details.setup .body ol { padding-left: 1.25rem; margin: 0.4rem 0 0.7rem; list-style: decimal; }
+  details.setup .body ol li { margin: 0.2rem 0; }
+  details.setup .body .inlinecode {
+    background: #111;
+    color: #f5f5f5;
+    font-size: 0.78rem;
+    padding: 0.5rem 0.8rem;
+    margin: 0.5rem 0;
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
 
-    /* ─── Sections ──────────────────────────────────────── */
-    section.sec {
-      padding: 36px 0 8px;
-      scroll-margin-top: 12px;
-    }
-    section.sec + section.sec { border-top: 1px solid var(--rule); padding-top: 32px; }
-    section.sec h2 {
-      font-family: "Fraunces", serif;
-      font-variation-settings: "opsz" 36, "SOFT" 60;
-      font-style: italic;
-      font-weight: 400;
-      font-size: 26px;
-      letter-spacing: -0.01em;
-      margin: 0 0 6px;
-      color: var(--ink);
-    }
-    section.sec h2 .num {
-      font-family: "JetBrains Mono", monospace;
-      font-style: normal;
-      font-size: 11px;
-      letter-spacing: 0.2em;
-      color: var(--ink-faint);
-      margin-right: 12px;
-      vertical-align: 3px;
-      text-transform: uppercase;
-    }
-    section.sec p.lede {
-      font-family: "Fraunces", serif;
-      font-variation-settings: "opsz" 18;
-      font-size: 16px;
-      line-height: 1.55;
-      color: var(--ink-soft);
-      margin: 0 0 18px;
-      max-width: 720px;
-    }
-    section.sec h3 {
-      font-family: "JetBrains Mono", monospace;
-      font-size: 11.5px;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-      color: var(--postmark);
-      margin: 22px 0 10px;
-      font-weight: 500;
-    }
-    section.sec p {
-      font-family: "Fraunces", serif;
-      font-variation-settings: "opsz" 18;
-      font-size: 15.5px;
-      line-height: 1.55;
-      color: var(--ink-soft);
-      margin: 8px 0;
-      max-width: 720px;
-    }
+  table.cmd {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0.5rem 0 0.4rem;
+    font-size: 0.85rem;
+  }
+  table.cmd td {
+    padding: 0.4rem 0.5rem;
+    border-bottom: 1px solid #eee;
+    vertical-align: top;
+  }
+  table.cmd td.name {
+    color: #111;
+    font-weight: 700;
+    white-space: nowrap;
+    width: 34%;
+  }
+  table.cmd td.desc { color: #333; }
 
-    /* Inline code */
-    code, .mono {
-      font-family: "JetBrains Mono", ui-monospace, monospace;
-      font-size: 0.9em;
-      background: rgba(168,50,26,0.08);
-      color: var(--postmark-deep);
-      padding: 1px 5px;
-      border-radius: 1px;
-    }
+  .twocol {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.6rem 1.2rem;
+    margin: 0.6rem 0;
+  }
+  .twocol .item h4 {
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #2563eb;
+    margin-bottom: 0.2rem;
+  }
+  .twocol .item p { font-size: 0.85rem; color: #333; margin: 0; }
 
-    /* Code blocks */
-    pre.codeblock {
-      background: var(--ink);
-      color: var(--paper);
-      font-family: "JetBrains Mono", monospace;
-      font-size: 13px;
-      line-height: 1.7;
-      padding: 18px 22px;
-      box-shadow: 4px 4px 0 var(--postmark);
-      overflow-x: auto;
-      margin: 12px 0 18px;
-    }
-    pre.codeblock .pr { color: var(--postmark); }
-    pre.codeblock .cm { color: rgba(241,233,216,0.55); font-style: italic; }
-    pre.codeblock .ar { color: #d8b86b; }
-    pre.codeblock .fl { color: #c4b9a1; }
+  footer {
+    margin-top: 3rem;
+    padding-top: 1.2rem;
+    border-top: 1px solid #ddd;
+    font-size: 0.8rem;
+    color: #888;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem 1.5rem;
+    justify-content: space-between;
+  }
+  footer a { color: #555; }
+  footer a:hover { color: #111; text-decoration: underline; }
 
-    /* ─── Setup collapsibles ────────────────────────────── */
-    details.setup {
-      border: 1px solid var(--rule);
-      background: var(--paper-deep);
-      margin: 10px 0;
-    }
-    details.setup[open] { background: var(--paper); border-color: var(--ink); }
-    details.setup > summary {
-      list-style: none;
-      cursor: pointer;
-      padding: 14px 22px;
-      font-family: "JetBrains Mono", monospace;
-      font-size: 11.5px;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      color: var(--postmark);
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-    details.setup > summary::-webkit-details-marker { display: none; }
-    details.setup > summary::before {
-      content: "+";
-      font-family: "Fraunces", serif;
-      font-style: italic;
-      font-size: 18px;
-      color: var(--postmark);
-      width: 14px;
-    }
-    details.setup[open] > summary::before { content: "−"; }
-    details.setup .body {
-      padding: 2px 22px 20px;
-      font-family: "Fraunces", serif;
-      font-variation-settings: "opsz" 18;
-      font-size: 15px;
-      line-height: 1.55;
-      color: var(--ink-soft);
-    }
-    details.setup .body p { margin: 6px 0 10px; }
-    details.setup .body ol { padding-left: 22px; margin: 6px 0 12px; }
-    details.setup .body ol li { margin: 3px 0; }
-    details.setup .body a {
-      color: var(--postmark-deep);
-      border-bottom: 1px dotted var(--postmark);
-      text-decoration: none;
-    }
-    details.setup .body a:hover { color: var(--postmark); }
-    details.setup .body .inlinecode {
-      background: var(--ink);
-      color: var(--paper);
-      font-family: "JetBrains Mono", monospace;
-      font-size: 12.5px;
-      padding: 8px 14px;
-      margin: 8px 0 12px;
-      display: block;
-      overflow-x: auto;
-      white-space: nowrap;
-    }
+  .links {
+    display: flex;
+    gap: 1.2rem;
+    margin: 2rem 0 0.5rem;
+  }
+  .links a { display: flex; align-items: center; }
+  .links svg { fill: #111; transition: opacity 0.15s; }
+  .links a:hover svg { opacity: 0.5; }
 
-    /* ─── Command reference table ───────────────────────── */
-    table.cmd {
-      width: 100%;
-      border-collapse: collapse;
-      margin: 8px 0 4px;
-      font-family: "Fraunces", serif;
-      font-variation-settings: "opsz" 14;
-    }
-    table.cmd th, table.cmd td {
-      text-align: left;
-      padding: 9px 10px;
-      border-bottom: 1px solid var(--rule);
-      vertical-align: top;
-    }
-    table.cmd thead th {
-      font-family: "JetBrains Mono", monospace;
-      font-size: 10.5px;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-      color: var(--ink);
-      font-weight: 500;
-      border-bottom: 1px solid var(--ink);
-    }
-    table.cmd td.name {
-      font-family: "JetBrains Mono", monospace;
-      font-size: 12.5px;
-      color: var(--ink);
-      white-space: nowrap;
-      width: 30%;
-    }
-    table.cmd td.desc {
-      font-size: 14.5px;
-      color: var(--ink-soft);
-      line-height: 1.45;
-    }
-    table.cmd td.desc code { font-size: 12.5px; }
-
-    /* Two-column option grid (for agent notes) */
-    .twocol {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 14px 36px;
-      margin: 8px 0 12px;
-    }
-    .twocol .item h4 {
-      font-family: "JetBrains Mono", monospace;
-      font-size: 11px;
-      letter-spacing: 0.16em;
-      text-transform: uppercase;
-      color: var(--postmark);
-      margin: 6px 0 4px;
-      font-weight: 500;
-    }
-    .twocol .item p {
-      margin: 0;
-      max-width: none;
-      font-size: 14.5px;
-      line-height: 1.5;
-    }
-
-    /* ─── Footer ────────────────────────────────────────── */
-    footer {
-      border-top: 1px solid var(--rule);
-      margin-top: 32px;
-      padding: 22px 0 36px;
-      display: flex;
-      justify-content: space-between;
-      gap: 16px;
-      flex-wrap: wrap;
-      font-family: "JetBrains Mono", monospace;
-      font-size: 11.5px;
-      color: var(--ink-faint);
-      letter-spacing: 0.04em;
-    }
-    footer a {
-      color: var(--ink-soft);
-      text-decoration: none;
-      border-bottom: 1px dotted var(--ink-faint);
-    }
-    footer a:hover { color: var(--postmark); border-bottom-color: var(--postmark); }
-
-    @media (max-width: 760px) {
-      .wrap { padding: 0 18px 0 24px; }
-      .install { width: 100%; box-shadow: 3px 3px 0 var(--postmark); }
-      .install .copy { display: none; }
-      .install .cmd { font-size: 12.5px; padding: 12px 14px; white-space: normal; word-break: break-all; }
-      .install .prompt { padding: 12px 10px 12px 14px; }
-      header.top { gap: 8px; }
-      header.top nav { margin-left: 0; }
-      header.top nav a:first-child { margin-left: 0; }
-      .twocol { grid-template-columns: 1fr; }
-      table.cmd td.name { width: 40%; font-size: 11.5px; }
-      table.cmd td.desc { font-size: 13.5px; }
-      pre.codeblock { padding: 14px 16px; font-size: 12px; }
-    }
-
-    ::selection { background: var(--postmark); color: var(--paper); }
-  </style>
+  @media (max-width: 600px) {
+    body { padding: 2rem 1rem; font-size: 14px; }
+    .install { width: 100%; }
+    .install .copy { display: none; }
+    .install .cmd { white-space: normal; word-break: break-all; padding: 0.7rem 0.8rem; }
+    .twocol { grid-template-columns: 1fr; }
+    table.cmd td.name { width: 40%; }
+  }
+</style>
 </head>
 <body>
-  <div class="wrap">
 
-    <header class="top">
-      <div class="brand"><b>mmm</b> · m<em>mm</em>ail</div>
-      <div class="meta">v<b>0.5.0</b> · MIT · Node ≥ 20</div>
-      <nav>
-        <a href="https://github.com/0xmmo/mmmail">github&nbsp;↗</a>
-        <a href="https://www.npmjs.com/package/@0xmmo/mmmail">npm&nbsp;↗</a>
-      </nav>
-    </header>
+  <nav class="topnav"><a href="https://mmoustafa.com">← mmoustafa.com</a></nav>
 
-    <div class="intro">
-      <h1>A small CLI mail client. <b>Stateless, scriptable, JSON-friendly.</b></h1>
-      <p class="lede">
-        Stateless commands — <code>list</code>, <code>read</code>, <code>send</code>, <code>reply</code>, <code>search</code>, <code>mark</code>, <code>move</code>, <code>delete</code>, <code>folders</code>, <code>doctor</code> — plus attachments, for Gmail (OAuth), Microsoft 365 (OAuth + PKCE), and any IMAP/SMTP host. Installs the <code>mmm</code> binary. <code>--json</code> on every data command.
-      </p>
-      <div class="install">
-        <span class="prompt">$</span>
-        <span class="cmd">npm install -g @0xmmo/mmmail</span>
-        <button class="copy" data-copy="npm install -g @0xmmo/mmmail" aria-label="Copy install command">copy</button>
-      </div>
-      <span class="req">Linux also needs <code>libsecret-1-dev</code> for keychain support.</span>
-    </div>
+  <span class="eyebrow">v0.5.0&nbsp;&nbsp;·&nbsp;&nbsp;MIT&nbsp;&nbsp;·&nbsp;&nbsp;Node ≥ 20</span>
+  <h1 class="name">mmmail</h1>
 
-    <div class="toc">
-      <a href="#quickstart">Quickstart</a>
-      <span class="sep">·</span>
-      <a href="#setup">Account setup</a>
-      <span class="sep">·</span>
-      <a href="#commands">Commands</a>
-      <span class="sep">·</span>
-      <a href="#attachments">Attachments</a>
-      <span class="sep">·</span>
-      <a href="#agents">JSON / agents</a>
-      <span class="sep">·</span>
-      <a href="#dev">Development</a>
-    </div>
+  <p class="lede">
+    A small, agent-friendly CLI mail client. Stateless commands — <code>list</code>, <code>read</code>, <code>send</code>, <code>reply</code>, <code>search</code>, <code>mark</code>, <code>move</code>, <code>delete</code>, <code>folders</code>, <code>doctor</code> — plus attachments, for Gmail (OAuth), Microsoft 365 (OAuth + PKCE), and any IMAP/SMTP host. Installs the <code>mmm</code> binary. <code>--json</code> on every data command.
+  </p>
 
-    <!-- ─── QUICKSTART ─────────────────────────────────── -->
-    <section class="sec" id="quickstart">
-      <h2><span class="num">§ 01</span>Quickstart</h2>
-<pre class="codeblock"><span class="cm"># add an account — Gmail, Microsoft, or any IMAP host</span>
+  <div class="install">
+    <span class="prompt">$</span>
+    <span class="cmd">npm install -g @0xmmo/mmmail</span>
+    <button class="copy" data-copy="npm install -g @0xmmo/mmmail" aria-label="Copy install command">copy</button>
+  </div>
+  <span class="req">Linux also needs <code>libsecret-1-dev</code> for keychain support.</span>
+
+  <div class="toc">
+    <a href="#quickstart">Quickstart</a><span class="sep">·</span>
+    <a href="#setup">Setup</a><span class="sep">·</span>
+    <a href="#commands">Commands</a><span class="sep">·</span>
+    <a href="#attachments">Attachments</a><span class="sep">·</span>
+    <a href="#agents">JSON / agents</a><span class="sep">·</span>
+    <a href="#dev">Development</a>
+  </div>
+
+  <section id="quickstart">
+    <h2>Quickstart</h2>
+<pre><span class="cm"># add an account — Gmail, Microsoft, or any IMAP host</span>
 <span class="pr">$</span> mmm init
 
 <span class="cm"># list, read, search</span>
-<span class="pr">$</span> mmm list                                          <span class="cm"># 20 most recent in INBOX</span>
-<span class="pr">$</span> mmm list <span class="fl">-n</span> <span class="ar">50</span> <span class="fl">--uid-after</span> <span class="ar">12000</span>                <span class="cm"># incremental sync</span>
-<span class="pr">$</span> mmm read <span class="ar">1234</span>                                    <span class="cm"># headers + text body</span>
-<span class="pr">$</span> mmm search <span class="ar">"invoice"</span>                              <span class="cm"># subject + body + from</span>
+<span class="pr">$</span> mmm list                                       <span class="cm"># 20 most recent in INBOX</span>
+<span class="pr">$</span> mmm list <span class="fl">-n</span> <span class="ar">50</span> <span class="fl">--uid-after</span> <span class="ar">12000</span>             <span class="cm"># incremental sync</span>
+<span class="pr">$</span> mmm read <span class="ar">1234</span>                                 <span class="cm"># headers + text body</span>
+<span class="pr">$</span> mmm search <span class="ar">"invoice"</span>                           <span class="cm"># subject + body + from</span>
 
 <span class="cm"># send + attachments</span>
 <span class="pr">$</span> mmm send <span class="fl">-t</span> a@example.com <span class="fl">-s</span> <span class="ar">"hi"</span> <span class="fl">-b</span> <span class="ar">"hello"</span>
-<span class="pr">$</span> mmm send <span class="fl">-t</span> a@example.com <span class="fl">-s</span> <span class="ar">"report"</span> <span class="fl">-b-</span>          <span class="cm"># body from stdin</span>
 <span class="pr">$</span> mmm send <span class="fl">-t</span> a@example.com <span class="fl">-s</span> <span class="ar">"q3"</span> <span class="fl">-b</span> <span class="ar">"see attached"</span> \
     <span class="fl">--attach</span> <span class="ar">./report.pdf</span> <span class="fl">--attach</span> <span class="ar">./numbers.xlsx</span>
 <span class="pr">$</span> mmm reply <span class="ar">1234</span> <span class="fl">-b</span> <span class="ar">"thanks"</span> <span class="fl">--attach</span> <span class="ar">./signed.pdf</span>
 
 <span class="cm"># incoming attachments</span>
-<span class="pr">$</span> mmm read <span class="ar">1234</span> <span class="fl">--save-attachments</span> <span class="ar">./out</span>          <span class="cm"># pull bytes to disk</span>
+<span class="pr">$</span> mmm read <span class="ar">1234</span> <span class="fl">--save-attachments</span> <span class="ar">./out</span>
 
 <span class="cm"># mailbox actions</span>
 <span class="pr">$</span> mmm mark <span class="ar">1234</span> <span class="fl">--read</span> <span class="fl">--flagged</span>
 <span class="pr">$</span> mmm move <span class="ar">1234</span> <span class="ar">"[Gmail]/All Mail"</span>
-<span class="pr">$</span> mmm delete <span class="ar">1234</span>                                  <span class="cm"># \Deleted + EXPUNGE</span>
+<span class="pr">$</span> mmm delete <span class="ar">1234</span>                               <span class="cm"># \Deleted + EXPUNGE</span>
 
 <span class="cm"># agent-friendly</span>
-<span class="pr">$</span> mmm doctor <span class="fl">--json</span>                                  <span class="cm"># exits 1 on any failure</span>
+<span class="pr">$</span> mmm doctor <span class="fl">--json</span>                               <span class="cm"># exits 1 on any failure</span>
 <span class="pr">$</span> mmm list <span class="fl">--json</span> | jq <span class="ar">'.[] | .from'</span></pre>
-    </section>
+  </section>
 
-    <!-- ─── SETUP ──────────────────────────────────────── -->
-    <section class="sec" id="setup">
-      <h2><span class="num">§ 02</span>Account setup</h2>
-      <p class="lede">
-        Three paths. Pick one. Account metadata lives in <code>~/.config/mmmail/config.json</code> (mode 0600); passwords, OAuth secrets, and refresh tokens go to your OS keychain via <a href="https://www.npmjs.com/package/@napi-rs/keyring">@napi-rs/keyring</a> and never touch disk in plain.
-      </p>
+  <section id="setup">
+    <h2>Account setup</h2>
+    <p>Account metadata lives in <code>~/.config/mmmail/config.json</code> (mode 0600). Passwords, OAuth secrets, and refresh tokens go to your OS keychain via <a href="https://www.npmjs.com/package/@napi-rs/keyring" target="_blank">@napi-rs/keyring</a> and never touch disk in plain.</p>
 
-      <details class="setup">
-        <summary>Gmail · OAuth (one-time per machine, ~3 min)</summary>
-        <div class="body">
-          <p>Gmail's <code>https://mail.google.com/</code> scope is restricted, so a shared OAuth client isn't possible. You'll create your own desktop OAuth client — <code>mmm init</code> walks you through it. Stays in <b>testing mode</b> (no Google verification dance, up to 100 test users).</p>
-          <ol>
-            <li>Create a Google Cloud project — <a href="https://console.cloud.google.com/projectcreate">console.cloud.google.com/projectcreate</a></li>
-            <li>Enable the Gmail API — <a href="https://console.cloud.google.com/apis/library/gmail.googleapis.com">console.cloud.google.com/apis/library/gmail</a></li>
-            <li>Configure the OAuth consent screen (Audience: <b>External</b>) — <a href="https://console.cloud.google.com/auth/overview">console.cloud.google.com/auth/overview</a></li>
-            <li>Add yourself as a test user — <a href="https://console.cloud.google.com/auth/audience">console.cloud.google.com/auth/audience</a></li>
-            <li>Create OAuth credentials of type <b>Desktop app</b> — <a href="https://console.cloud.google.com/auth/clients">console.cloud.google.com/auth/clients</a></li>
-            <li>Copy the client ID + secret (or download the JSON), then run:</li>
-          </ol>
-          <span class="inlinecode">mmm add google --email me@gmail.com --credentials-file ./client_secret.json</span>
-          <p>Subsequent Gmail accounts on the same machine skip the project setup and only run the consent flow.</p>
-        </div>
-      </details>
+    <details class="setup">
+      <summary>Gmail · OAuth (one-time per machine, ~3 min)</summary>
+      <div class="body">
+        <p>Gmail's <code>https://mail.google.com/</code> scope is restricted, so a shared OAuth client isn't possible. You'll create your own desktop OAuth client — <code>mmm init</code> walks you through it. Stays in testing mode (no Google verification, up to 100 test users).</p>
+        <ol>
+          <li>Create a Google Cloud project — <a href="https://console.cloud.google.com/projectcreate" target="_blank">console.cloud.google.com/projectcreate</a></li>
+          <li>Enable the Gmail API — <a href="https://console.cloud.google.com/apis/library/gmail.googleapis.com" target="_blank">console.cloud.google.com/apis/library/gmail</a></li>
+          <li>Configure the OAuth consent screen (Audience: <b>External</b>) — <a href="https://console.cloud.google.com/auth/overview" target="_blank">console.cloud.google.com/auth/overview</a></li>
+          <li>Add yourself as a test user — <a href="https://console.cloud.google.com/auth/audience" target="_blank">console.cloud.google.com/auth/audience</a></li>
+          <li>Create OAuth credentials of type <b>Desktop app</b> — <a href="https://console.cloud.google.com/auth/clients" target="_blank">console.cloud.google.com/auth/clients</a></li>
+          <li>Copy the client ID + secret (or download the JSON), then run:</li>
+        </ol>
+        <span class="inlinecode">mmm add google --email me@gmail.com --credentials-file ./client_secret.json</span>
+        <p>Subsequent Gmail accounts on the same machine skip the project setup and only run the consent flow.</p>
+      </div>
+    </details>
 
-      <details class="setup">
-        <summary>Microsoft 365 / Outlook.com · OAuth (zero Azure setup)</summary>
-        <div class="body">
-          <p><code>mmm</code> ships with a built-in Microsoft Entra app (multi-tenant + personal accounts, public client + PKCE, no secret).</p>
-          <span class="inlinecode">mmm add microsoft --email me@outlook.com</span>
-          <p>You'll see <em>"mmmail"</em> on the consent screen, approve, done.</p>
-          <p><b>Work/school accounts:</b> many M365 tenants disable SMTP AUTH by default. If <code>mmm send</code> fails with <code>SmtpClientAuthentication is disabled</code>, ask your admin to enable <a href="https://learn.microsoft.com/en-us/exchange/clients-and-mobile-in-exchange-online/authenticated-client-smtp-submission">authenticated client SMTP submission</a> for your mailbox.</p>
-          <p><b>Prefer your own Entra app?</b> Register one (Account type: <em>any organizational directory + personal Microsoft accounts</em>), add <code>http://localhost</code> as a <b>Mobile and desktop applications</b> redirect URI, enable <b>Allow public client flows</b>, then:</p>
-          <span class="inlinecode">mmm add microsoft --email me@outlook.com --client-id &lt;your-id&gt;</span>
-        </div>
-      </details>
+    <details class="setup">
+      <summary>Microsoft 365 / Outlook.com · OAuth (zero Azure setup)</summary>
+      <div class="body">
+        <p><code>mmm</code> ships with a built-in Microsoft Entra app (multi-tenant + personal accounts, public client + PKCE, no secret).</p>
+        <span class="inlinecode">mmm add microsoft --email me@outlook.com</span>
+        <p>You'll see <em>"mmmail"</em> on the consent screen, approve, done.</p>
+        <p><b>Work/school accounts:</b> many M365 tenants disable SMTP AUTH by default. If <code>mmm send</code> fails with <code>SmtpClientAuthentication is disabled</code>, ask your admin to enable <a href="https://learn.microsoft.com/en-us/exchange/clients-and-mobile-in-exchange-online/authenticated-client-smtp-submission" target="_blank">authenticated client SMTP submission</a> for your mailbox.</p>
+        <p><b>Prefer your own Entra app?</b> Register one (any organizational directory + personal accounts), add <code>http://localhost</code> as a Mobile and desktop applications redirect URI, enable Allow public client flows, then:</p>
+        <span class="inlinecode">mmm add microsoft --email me@outlook.com --client-id &lt;your-id&gt;</span>
+      </div>
+    </details>
 
-      <details class="setup">
-        <summary>IMAP / SMTP · App password (Fastmail, iCloud, Yahoo, generic)</summary>
-        <div class="body">
-          <p>App password stored in your OS keychain; never written to the config file.</p>
-          <span class="inlinecode">mmm add imap --email me@example.com --preset fastmail --password-stdin</span>
-          <p>Presets cover <code>fastmail</code>, <code>icloud</code>, <code>yahoo</code>. Without a preset, pass <code>--imap-host</code>, <code>--imap-port</code>, <code>--smtp-host</code>, <code>--smtp-port</code>, <code>--imap-tls</code>, <code>--smtp-tls</code> explicitly. Use <code>--smtp-password-stdin</code> if your provider requires a different password for SMTP.</p>
-        </div>
-      </details>
-    </section>
+    <details class="setup">
+      <summary>IMAP / SMTP · App password (Fastmail, iCloud, Yahoo, generic)</summary>
+      <div class="body">
+        <p>App password stored in your OS keychain; never written to the config file.</p>
+        <span class="inlinecode">mmm add imap --email me@example.com --preset fastmail --password-stdin</span>
+        <p>Presets cover <code>fastmail</code>, <code>icloud</code>, <code>yahoo</code>. Without a preset, pass <code>--imap-host</code>, <code>--imap-port</code>, <code>--smtp-host</code>, <code>--smtp-port</code>, <code>--imap-tls</code>, <code>--smtp-tls</code> explicitly. Use <code>--smtp-password-stdin</code> if your provider requires a different password for SMTP.</p>
+      </div>
+    </details>
+  </section>
 
-    <!-- ─── COMMANDS ───────────────────────────────────── -->
-    <section class="sec" id="commands">
-      <h2><span class="num">§ 03</span>Commands</h2>
-      <p>Every command takes <code>-a, --account &lt;email&gt;</code> to override the default account, and <code>--json</code> for machine-readable output.</p>
+  <section id="commands">
+    <h2>Commands</h2>
+    <p>Every command takes <code>-a, --account &lt;email&gt;</code> to override the default account, and <code>--json</code> for machine-readable output.</p>
 
-      <h3>// reading</h3>
-      <table class="cmd">
-        <thead><tr><th>Command</th><th>Description &amp; flags</th></tr></thead>
-        <tbody>
-          <tr><td class="name">mmm list</td><td class="desc">20 most recent in a folder. <code>-f &lt;name&gt;</code>, <code>-n &lt;limit&gt;</code>, <code>-u</code> (unread only), <code>--since &lt;date&gt;</code>, <code>--before &lt;date&gt;</code>, <code>--uid-after &lt;n&gt;</code>.</td></tr>
-          <tr><td class="name">mmm read &lt;uid&gt;</td><td class="desc">Headers + text body. <code>-f &lt;folder&gt;</code>, <code>--include-html</code> (large), <code>--save-attachments &lt;dir&gt;</code>.</td></tr>
-          <tr><td class="name">mmm search &lt;q&gt;</td><td class="desc">Full-text across subject / body / from. Same time + pagination flags as <code>list</code>.</td></tr>
-          <tr><td class="name">mmm folders</td><td class="desc">List available IMAP folders.</td></tr>
-        </tbody>
-      </table>
+    <h3>Reading</h3>
+    <table class="cmd"><tbody>
+      <tr><td class="name">mmm list</td><td class="desc">20 most recent in a folder. <code>-f &lt;name&gt;</code>, <code>-n &lt;limit&gt;</code>, <code>-u</code> (unread only), <code>--since</code>, <code>--before</code>, <code>--uid-after</code>.</td></tr>
+      <tr><td class="name">mmm read &lt;uid&gt;</td><td class="desc">Headers + text body. <code>-f &lt;folder&gt;</code>, <code>--include-html</code> (large), <code>--save-attachments &lt;dir&gt;</code>.</td></tr>
+      <tr><td class="name">mmm search &lt;q&gt;</td><td class="desc">Full-text across subject / body / from. Same time + pagination flags as <code>list</code>.</td></tr>
+      <tr><td class="name">mmm folders</td><td class="desc">List available IMAP folders.</td></tr>
+    </tbody></table>
 
-      <h3>// writing</h3>
-      <table class="cmd">
-        <thead><tr><th>Command</th><th>Description &amp; flags</th></tr></thead>
-        <tbody>
-          <tr><td class="name">mmm send</td><td class="desc"><code>-t &lt;addr...&gt; -s &lt;subj&gt;</code>. Body: <code>-b &lt;text&gt;</code>, <code>--body-stdin</code>, or omit for <code>$EDITOR</code>. <code>-c &lt;cc...&gt;</code>, <code>-B &lt;bcc...&gt;</code>, <code>--attach &lt;path...&gt;</code>.</td></tr>
-          <tr><td class="name">mmm reply &lt;uid&gt;</td><td class="desc">Auto-threads (sets <code>In-Reply-To</code> and <code>References</code>). <code>-b</code> / <code>--body-stdin</code>, <code>--all</code>, <code>--attach</code>, <code>-f &lt;folder&gt;</code>.</td></tr>
-        </tbody>
-      </table>
+    <h3>Writing</h3>
+    <table class="cmd"><tbody>
+      <tr><td class="name">mmm send</td><td class="desc"><code>-t &lt;addr...&gt; -s &lt;subj&gt;</code>. Body: <code>-b &lt;text&gt;</code>, <code>--body-stdin</code>, or omit for <code>$EDITOR</code>. <code>-c &lt;cc...&gt;</code>, <code>-B &lt;bcc...&gt;</code>, <code>--attach &lt;path...&gt;</code>.</td></tr>
+      <tr><td class="name">mmm reply &lt;uid&gt;</td><td class="desc">Auto-threads (sets In-Reply-To, References). <code>-b</code> / <code>--body-stdin</code>, <code>--all</code>, <code>--attach</code>, <code>-f &lt;folder&gt;</code>.</td></tr>
+    </tbody></table>
 
-      <h3>// mailbox actions</h3>
-      <table class="cmd">
-        <thead><tr><th>Command</th><th>Description &amp; flags</th></tr></thead>
-        <tbody>
-          <tr><td class="name">mmm mark &lt;uid&gt;</td><td class="desc"><code>--read</code> / <code>--unread</code>, <code>--flagged</code> / <code>--unflagged</code>.</td></tr>
-          <tr><td class="name">mmm move &lt;uid&gt; &lt;dest&gt;</td><td class="desc">Move to another folder, e.g. <code>"[Gmail]/All Mail"</code>.</td></tr>
-          <tr><td class="name">mmm delete &lt;uid&gt;</td><td class="desc">Permanent — sets <code>\Deleted</code>, EXPUNGEs.</td></tr>
-        </tbody>
-      </table>
+    <h3>Mailbox actions</h3>
+    <table class="cmd"><tbody>
+      <tr><td class="name">mmm mark &lt;uid&gt;</td><td class="desc"><code>--read</code> / <code>--unread</code>, <code>--flagged</code> / <code>--unflagged</code>.</td></tr>
+      <tr><td class="name">mmm move &lt;uid&gt; &lt;dest&gt;</td><td class="desc">Move to another folder, e.g. <code>"[Gmail]/All Mail"</code>.</td></tr>
+      <tr><td class="name">mmm delete &lt;uid&gt;</td><td class="desc">Permanent — sets <code>\Deleted</code>, EXPUNGEs.</td></tr>
+    </tbody></table>
 
-      <h3>// accounts &amp; health</h3>
-      <table class="cmd">
-        <thead><tr><th>Command</th><th>Description &amp; flags</th></tr></thead>
-        <tbody>
-          <tr><td class="name">mmm</td><td class="desc">Interactive dashboard (TTY); non-TTY prints help and exits <b>2</b>.</td></tr>
-          <tr><td class="name">mmm accounts</td><td class="desc">List configured accounts.</td></tr>
-          <tr><td class="name">mmm default &lt;email&gt;</td><td class="desc">Set the active account.</td></tr>
-          <tr><td class="name">mmm remove &lt;email&gt;</td><td class="desc">Drop an account + its keychain entries.</td></tr>
-          <tr><td class="name">mmm add google|microsoft|imap</td><td class="desc">Non-interactive add. See <a href="#setup">§ 02</a> for flags per provider.</td></tr>
-          <tr><td class="name">mmm doctor</td><td class="desc">Probe every account; exits <b>1</b> on any failure — drop into CI as a tripwire.</td></tr>
-        </tbody>
-      </table>
-    </section>
+    <h3>Accounts &amp; health</h3>
+    <table class="cmd"><tbody>
+      <tr><td class="name">mmm</td><td class="desc">Interactive dashboard (TTY); non-TTY prints help and exits <b>2</b>.</td></tr>
+      <tr><td class="name">mmm accounts</td><td class="desc">List configured accounts.</td></tr>
+      <tr><td class="name">mmm default &lt;email&gt;</td><td class="desc">Set the active account.</td></tr>
+      <tr><td class="name">mmm remove &lt;email&gt;</td><td class="desc">Drop an account + its keychain entries.</td></tr>
+      <tr><td class="name">mmm add google|microsoft|imap</td><td class="desc">Non-interactive add. See <a href="#setup">Setup</a>.</td></tr>
+      <tr><td class="name">mmm doctor</td><td class="desc">Probe every account; exits <b>1</b> on any failure — drop into CI as a tripwire.</td></tr>
+    </tbody></table>
+  </section>
 
-    <!-- ─── ATTACHMENTS ────────────────────────────────── -->
-    <section class="sec" id="attachments">
-      <h2><span class="num">§ 04</span>Attachments</h2>
-      <p class="lede">
-        <code>--attach &lt;path...&gt;</code> on <code>send</code> and <code>reply</code> (repeatable). On read, attachments are listed in the rendered output and in <code>--json</code>. <code>--save-attachments &lt;dir&gt;</code> writes the bytes to disk.
-      </p>
-<pre class="codeblock"><span class="cm"># attach one or more files (repeatable)</span>
+  <section id="attachments">
+    <h2>Attachments</h2>
+    <p><code>--attach &lt;path...&gt;</code> on <code>send</code> and <code>reply</code> (repeatable). On read, attachments are listed in the rendered output and in <code>--json</code>. <code>--save-attachments &lt;dir&gt;</code> writes the bytes to disk.</p>
+<pre><span class="cm"># attach one or more files (repeatable)</span>
 <span class="pr">$</span> mmm send <span class="fl">-t</span> a@example.com <span class="fl">-s</span> <span class="ar">"Q3 numbers"</span> <span class="fl">-b</span> <span class="ar">"see attached"</span> \
     <span class="fl">--attach</span> <span class="ar">./report.pdf</span> <span class="fl">--attach</span> <span class="ar">./spreadsheet.xlsx</span>
 <span class="pr">$</span> mmm reply <span class="ar">1234</span> <span class="fl">--attach</span> <span class="ar">./signed.pdf</span>
@@ -621,82 +407,73 @@
 <span class="cm"># attachments show up automatically when reading</span>
 <span class="pr">$</span> mmm read <span class="ar">1234</span>
 <span class="cm">Subject: Q3 numbers</span>
-<span class="cm">From:    a@example.com</span>
-<span class="cm">Date:    2026-05-11T16:04:21.000Z</span>
 <span class="cm">Attachments:</span>
 <span class="cm">  1. report.pdf (application/pdf, 124.2 KB)</span>
 <span class="cm">  2. spreadsheet.xlsx (application/vnd.openxmlformats-…, 38.4 KB)</span>
 
 <span class="cm"># save them to disk — collisions get -1, -2, … suffixes</span>
 <span class="pr">$</span> mmm read <span class="ar">1234</span> <span class="fl">--save-attachments</span> <span class="ar">./out</span>
-<span class="cm">✓ saved /Users/you/out/report.pdf</span>
-<span class="cm">✓ saved /Users/you/out/spreadsheet.xlsx</span>
 
 <span class="cm"># JSON for agents — savedPath populated when --save-attachments is set</span>
 <span class="pr">$</span> mmm read <span class="ar">1234</span> <span class="fl">--save-attachments</span> <span class="ar">./out</span> <span class="fl">--json</span> | jq <span class="ar">.attachments</span></pre>
-      <p>
-        Filenames are sanitised (path separators stripped, leading dots removed); empty or invalid names fall back to <code>attachment-N</code>. JSON output includes <code>filename</code>, <code>contentType</code>, <code>size</code>, <code>contentId</code>, <code>inline</code>, and (when saved) <code>savedPath</code>.
-      </p>
-    </section>
+    <p>Filenames are sanitised (path separators stripped, leading dots removed); empty or invalid names fall back to <code>attachment-N</code>. JSON output includes <code>filename</code>, <code>contentType</code>, <code>size</code>, <code>contentId</code>, <code>inline</code>, and (when saved) <code>savedPath</code>.</p>
+  </section>
 
-    <!-- ─── JSON / AGENTS ──────────────────────────────── -->
-    <section class="sec" id="agents">
-      <h2><span class="num">§ 05</span>JSON output &amp; agent notes</h2>
-      <div class="twocol">
-        <div class="item">
-          <h4>// --json everywhere</h4>
-          <p>Every data command — list, read, search, send, reply, mark, move, delete, folders, doctor, accounts, add — supports <code>--json</code>.</p>
-        </div>
-        <div class="item">
-          <h4>// fail-fast bare invocation</h4>
-          <p><code>mmm</code> with no subcommand in a non-TTY exits status <b>2</b>, so scripts that forgot a command fail loudly instead of hanging on a dashboard.</p>
-        </div>
-        <div class="item">
-          <h4>// health gate</h4>
-          <p><code>mmm doctor --json</code> exits <b>1</b> if any account fails to connect.</p>
-        </div>
-        <div class="item">
-          <h4>// secrets off argv</h4>
-          <p><code>--body-stdin</code>, <code>--password-stdin</code>, <code>--client-secret-stdin</code> keep secrets out of <code>argv</code> and shell history.</p>
-        </div>
-        <div class="item">
-          <h4>// pagination</h4>
-          <p><code>--uid-after &lt;n&gt;</code> for incremental sync; <code>--since &lt;date&gt;</code> / <code>--before &lt;date&gt;</code> for time windows. Both <code>list</code> and <code>search</code>.</p>
-        </div>
-        <div class="item">
-          <h4>// HTML off by default</h4>
-          <p><code>read --json</code> drops the HTML body (often 50× the text). Pass <code>--include-html</code> when you need it.</p>
-        </div>
+  <section id="agents">
+    <h2>JSON output &amp; agent notes</h2>
+    <div class="twocol">
+      <div class="item">
+        <h4>--json everywhere</h4>
+        <p>Every data command — list, read, search, send, reply, mark, move, delete, folders, doctor, accounts, add — supports <code>--json</code>.</p>
       </div>
-    </section>
+      <div class="item">
+        <h4>Fail-fast bare invocation</h4>
+        <p><code>mmm</code> with no subcommand in a non-TTY exits status <b>2</b>, so scripts that forgot a command fail loudly instead of hanging on a dashboard.</p>
+      </div>
+      <div class="item">
+        <h4>Health gate</h4>
+        <p><code>mmm doctor --json</code> exits <b>1</b> if any account fails to connect.</p>
+      </div>
+      <div class="item">
+        <h4>Secrets off argv</h4>
+        <p><code>--body-stdin</code>, <code>--password-stdin</code>, <code>--client-secret-stdin</code> keep secrets out of <code>argv</code> and shell history.</p>
+      </div>
+      <div class="item">
+        <h4>Pagination</h4>
+        <p><code>--uid-after &lt;n&gt;</code> for incremental sync; <code>--since</code> / <code>--before</code> for time windows. Both <code>list</code> and <code>search</code>.</p>
+      </div>
+      <div class="item">
+        <h4>HTML off by default</h4>
+        <p><code>read --json</code> drops the HTML body (often 50× the text). Pass <code>--include-html</code> when you need it.</p>
+      </div>
+    </div>
+  </section>
 
-    <!-- ─── DEVELOPMENT ────────────────────────────────── -->
-    <section class="sec" id="dev">
-      <h2><span class="num">§ 06</span>Development</h2>
-<pre class="codeblock"><span class="pr">$</span> git clone https://github.com/0xmmo/mmmail <span class="ar">&amp;&amp;</span> cd mmmail
+  <section id="dev">
+    <h2>Development</h2>
+<pre><span class="pr">$</span> git clone https://github.com/0xmmo/mmmail <span class="fl">&amp;&amp;</span> cd mmmail
 <span class="pr">$</span> npm install
 <span class="pr">$</span> npm run cli <span class="fl">--</span> list <span class="fl">-n</span> <span class="ar">5</span>           <span class="cm"># run from TS via tsx</span>
-<span class="pr">$</span> npm run watch                       <span class="cm"># tsup --watch</span>
 <span class="pr">$</span> npm test
 <span class="pr">$</span> npm run typecheck
 <span class="pr">$</span> npm run build</pre>
-      <h3>// releasing</h3>
-      <p>Push a <code>v*.*.*</code> tag — CI runs typecheck + tests + build, publishes to npm with provenance, creates a GitHub release.</p>
-<pre class="codeblock"><span class="pr">$</span> npm version minor                   <span class="cm"># creates commit + tag</span>
-<span class="pr">$</span> git push <span class="fl">--follow-tags</span></pre>
-      <p>Requires either npm <a href="https://docs.npmjs.com/trusted-publishers">Trusted Publishing</a> configured for the package, or an <code>NPM_TOKEN</code> repo secret.</p>
-    </section>
+    <p>To release: bump the version, push tags, then publish manually.</p>
+<pre><span class="pr">$</span> npm version minor
+<span class="pr">$</span> git push <span class="fl">--follow-tags</span>
+<span class="pr">$</span> npm login <span class="fl">&amp;&amp;</span> npm publish</pre>
+  </section>
 
-    <footer>
-      <div>m<em>mm</em>ail · MIT · 2026</div>
-      <div>
-        <a href="https://github.com/0xmmo/mmmail">github.com/0xmmo/mmmail</a>
-        &nbsp;·&nbsp;
-        <a href="https://www.npmjs.com/package/@0xmmo/mmmail">npmjs.com/@0xmmo/mmmail</a>
-      </div>
-    </footer>
-
+  <div class="links">
+    <a href="https://github.com/0xmmo/mmmail" target="_blank" aria-label="GitHub"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg></a>
+    <a href="https://www.npmjs.com/package/@0xmmo/mmmail" target="_blank" aria-label="npm"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 18 7"><path d="M0 0h18v6H9v1H5V6H0V0zm1 5h2V2h1v3h1V1H1v4zm5-4v5h2V5h2V1H6zm2 1h1v2H8V2zm3-1v4h2V2h1v3h1V2h1v3h1V1h-6z"/></svg></a>
   </div>
+
+  <footer>
+    <div>mmmail · MIT · 2026</div>
+    <div>
+      Built by <a href="https://mmoustafa.com">Mohamed Moustafa</a> · part of <a href="https://mmoustafa.com#projects">mmoustafa.com/projects</a>
+    </div>
+  </footer>
 
   <script>
     document.querySelectorAll('button.copy').forEach(btn => {
@@ -707,10 +484,7 @@
           const original = btn.textContent;
           btn.textContent = 'copied';
           btn.classList.add('ok');
-          setTimeout(() => {
-            btn.textContent = original;
-            btn.classList.remove('ok');
-          }, 1400);
+          setTimeout(() => { btn.textContent = original; btn.classList.remove('ok'); }, 1400);
         } catch (e) {
           const cmd = btn.parentElement.querySelector('.cmd');
           if (cmd) {
