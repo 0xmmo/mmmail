@@ -22,6 +22,15 @@ import {
   runConsentFlow as runMsConsentFlow,
 } from "../auth/oauth-microsoft.js";
 import { discoverMailServers, type DiscoverResult } from "../auth/autodiscover.js";
+import {
+  impliesImplicitTls,
+  parseHostPort,
+  validateEmail,
+  validateHostPort,
+  validateNonEmpty,
+  validatePort,
+} from "../auth/validate.js";
+import { testImap, testSmtp, type ServerSpec } from "../auth/connection-test.js";
 
 export interface ProviderPreset {
   imap: { host: string; port: number; secure: boolean };
@@ -379,29 +388,49 @@ async function runRemove(accounts: AccountConfig[]): Promise<void> {
 }
 
 async function runImapInit(): Promise<void> {
-  const email = await input({
-    message: "Email address",
-    validate: (v) => /.+@.+\..+/.test(v) || "Enter a valid email",
-  });
+  const email = (
+    await input({
+      message: "Email address",
+      validate: validateEmail,
+    })
+  ).trim();
 
-  const preset = await resolveImapPresetInteractive(email);
+  let preset = await resolveImapPresetInteractive(email);
   if (!preset) return;
 
-  const pw = await password({
+  console.log(
+    pc.dim("  Tip: most providers want an app password, not your account password."),
+  );
+  let pw = await password({
     message: "App password (stored in OS keychain)",
     mask: "•",
+    validate: validateNonEmpty("a password"),
   });
 
   let smtpPassword: string | undefined;
-  const sameSmtp = await confirm({
-    message: "Use the same password for SMTP?",
-    default: true,
-  });
-  if (!sameSmtp) {
-    smtpPassword = await password({
-      message: "SMTP password (stored in OS keychain)",
-      mask: "•",
-    });
+
+  while (true) {
+    const result = await verifyConnection(email, preset, pw, smtpPassword);
+    if (result === "save") break;
+    if (result === "cancel") return;
+    if (result.action === "edit") {
+      const next = await promptCustomServers(preset);
+      if (!next) return;
+      preset = next;
+    } else if (result.action === "smtp-password") {
+      smtpPassword = await password({
+        message: "SMTP password (separate from IMAP)",
+        mask: "•",
+        validate: validateNonEmpty("a password"),
+      });
+    } else if (result.action === "imap-password") {
+      pw = await password({
+        message: "IMAP/app password",
+        mask: "•",
+        validate: validateNonEmpty("a password"),
+      });
+      smtpPassword = undefined;
+    }
   }
 
   await addImapAccount({
@@ -414,6 +443,78 @@ async function runImapInit(): Promise<void> {
 
   console.log(pc.green(`✓ Saved account ${email}`));
   console.log(pc.dim(`  Try: mmm list`));
+}
+
+type VerifyResult =
+  | "save"
+  | "cancel"
+  | { action: "edit" | "imap-password" | "smtp-password" };
+
+async function verifyConnection(
+  email: string,
+  preset: ProviderPreset,
+  pw: string,
+  smtpPassword?: string,
+): Promise<VerifyResult> {
+  console.log(pc.dim(`  Testing IMAP ${preset.imap.host}:${preset.imap.port}…`));
+  const imapResult = await testImap(preset.imap as ServerSpec, email, pw);
+  if (!imapResult.ok) {
+    console.log(pc.red(`  ✗ IMAP failed: ${imapResult.error}`));
+    return promptOnFailure({
+      side: "IMAP",
+      authFailed: imapResult.authFailed === true,
+    });
+  }
+  console.log(pc.green("  ✓ IMAP OK"));
+
+  console.log(pc.dim(`  Testing SMTP ${preset.smtp.host}:${preset.smtp.port}…`));
+  const smtpPw = smtpPassword ?? pw;
+  const smtpResult = await testSmtp(preset.smtp as ServerSpec, email, smtpPw);
+  if (!smtpResult.ok) {
+    console.log(pc.red(`  ✗ SMTP failed: ${smtpResult.error}`));
+    return promptOnFailure({
+      side: "SMTP",
+      authFailed: smtpResult.authFailed === true,
+      hasSeparateSmtpPw: smtpPassword !== undefined,
+    });
+  }
+  console.log(pc.green("  ✓ SMTP OK"));
+  return "save";
+}
+
+async function promptOnFailure(opts: {
+  side: "IMAP" | "SMTP";
+  authFailed: boolean;
+  hasSeparateSmtpPw?: boolean;
+}): Promise<VerifyResult> {
+  const choices: { name: string; value: string }[] = [];
+  if (opts.authFailed) {
+    if (opts.side === "IMAP") {
+      choices.push({ name: "Re-enter password", value: "imap-password" });
+    } else {
+      choices.push({
+        name: opts.hasSeparateSmtpPw
+          ? "Re-enter SMTP password"
+          : "Use a separate SMTP password",
+        value: "smtp-password",
+      });
+    }
+  } else {
+    choices.push({ name: "Retry", value: "retry" });
+  }
+  choices.push({ name: "Edit settings", value: "edit" });
+  choices.push({ name: "Save anyway (skip the test)", value: "save" });
+  choices.push({ name: "Cancel", value: "cancel" });
+
+  const action = await select({
+    message: `${opts.side} test failed — what now?`,
+    choices,
+    default: choices[0]!.value,
+  });
+  if (action === "save") return "save";
+  if (action === "cancel") return "cancel";
+  if (action === "retry") return { action: "edit" };
+  return { action: action as "edit" | "imap-password" | "smtp-password" };
 }
 
 async function resolveImapPresetInteractive(
@@ -429,8 +530,8 @@ async function resolveImapPresetInteractive(
     const choice = await select({
       message: "Use these settings?",
       choices: [
-        { name: "Use detected", value: "use" },
-        { name: "Customize", value: "custom" },
+        { name: "Continue", value: "use" },
+        { name: "Edit settings", value: "custom" },
         { name: "Cancel", value: "cancel" },
       ],
       default: "use",
@@ -457,63 +558,65 @@ function printDetectedServers(d: DiscoverResult): void {
           : "DNS SRV records";
   const provider = d.displayName ? ` — ${d.displayName}` : "";
   console.log(pc.green(`  ✓ Detected via ${sourceLabel}${provider}`));
-  console.log(
-    pc.dim(
-      `    IMAP  ${d.preset.imap.host}:${d.preset.imap.port} (${d.preset.imap.secure ? "SSL" : "STARTTLS/plain"})`,
-    ),
-  );
-  console.log(
-    pc.dim(
-      `    SMTP  ${d.preset.smtp.host}:${d.preset.smtp.port} (${d.preset.smtp.secure ? "SSL" : "STARTTLS/plain"})`,
-    ),
-  );
+  console.log(pc.dim(`    IMAP  ${formatServer(d.preset.imap)}`));
+  console.log(pc.dim(`    SMTP  ${formatServer(d.preset.smtp)}`));
+}
+
+function formatServer(s: { host: string; port: number; secure: boolean }): string {
+  return `${s.host}:${s.port} (${s.secure ? "SSL/TLS" : "STARTTLS"})`;
 }
 
 async function promptCustomServers(
   defaults?: ProviderPreset,
-): Promise<ProviderPreset> {
-  const imapHost = await input({
-    message: "IMAP host (e.g. imap.example.com)",
-    default: defaults?.imap.host,
-  });
-  const imapPort = Number(
+): Promise<ProviderPreset | undefined> {
+  const imap = await promptServer("IMAP", defaults?.imap);
+  if (!imap) return undefined;
+  const smtp = await promptServer("SMTP", defaults?.smtp);
+  if (!smtp) return undefined;
+  return { imap, smtp };
+}
+
+async function promptServer(
+  protocol: "IMAP" | "SMTP",
+  defaults?: { host: string; port: number; secure: boolean },
+): Promise<{ host: string; port: number; secure: boolean } | undefined> {
+  const proto = protocol.toLowerCase() as "imap" | "smtp";
+  const defaultPort = defaults?.port ?? (proto === "imap" ? 993 : 465);
+  const defaultStr = defaults
+    ? `${defaults.host}:${defaults.port}`
+    : protocol === "IMAP"
+      ? "imap.example.com:993"
+      : "smtp.example.com:465";
+
+  const raw = (
     await input({
-      message: "IMAP port",
-      default: String(defaults?.imap.port ?? 993),
-    }),
-  );
-  const imapSecure =
-    (await select({
-      message: "IMAP TLS",
-      choices: [
-        { name: "Implicit TLS (port 993)", value: "true" },
-        { name: "STARTTLS / plain", value: "false" },
-      ],
-      default: defaults ? String(defaults.imap.secure) : "true",
-    })) === "true";
-  const smtpHost = await input({
-    message: "SMTP host",
-    default: defaults?.smtp.host,
-  });
-  const smtpPort = Number(
-    await input({
-      message: "SMTP port",
-      default: String(defaults?.smtp.port ?? 465),
-    }),
-  );
-  const smtpSecure =
-    (await select({
-      message: "SMTP TLS",
-      choices: [
-        { name: "Implicit TLS (port 465)", value: "true" },
-        { name: "STARTTLS (port 587)", value: "false" },
-      ],
-      default: defaults ? String(defaults.smtp.secure) : "true",
-    })) === "true";
-  return {
-    imap: { host: imapHost, port: imapPort, secure: imapSecure },
-    smtp: { host: smtpHost, port: smtpPort, secure: smtpSecure },
-  };
+      message: `${protocol} server (host or host:port)`,
+      default: defaultStr,
+      validate: (v) => validateHostPort(v, defaultPort),
+    })
+  ).trim();
+  const parsed = parseHostPort(raw)!;
+  const port = parsed.port ?? defaultPort;
+  const portValidation = validatePort(port);
+  if (portValidation !== true) {
+    console.log(pc.red(`  ${portValidation}`));
+    return undefined;
+  }
+
+  let secure = impliesImplicitTls(proto, port);
+  if (secure === undefined) {
+    secure =
+      (await select({
+        message: `${protocol} TLS for port ${port}`,
+        choices: [
+          { name: "Implicit TLS (SSL)", value: "true" },
+          { name: "STARTTLS", value: "false" },
+        ],
+        default: defaults ? String(defaults.secure) : "true",
+      })) === "true";
+  }
+
+  return { host: parsed.host, port, secure };
 }
 
 async function runGoogleInit(): Promise<void> {
