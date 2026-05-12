@@ -3,6 +3,7 @@ import { simpleParser } from "mailparser";
 import type nodemailer from "nodemailer";
 import type {
   ListOptions,
+  MessageAttachment,
   MessageBody,
   MessageSummary,
   Provider,
@@ -46,7 +47,10 @@ export abstract class MailboxBase implements Provider {
     }
   }
 
-  async fetch(id: string, opts?: { folder?: string }): Promise<MessageBody> {
+  async fetch(
+    id: string,
+    opts?: { folder?: string; withAttachmentData?: boolean },
+  ): Promise<MessageBody> {
     const folder = opts?.folder ?? "INBOX";
     const lock = await this.client.getMailboxLock(folder);
     try {
@@ -71,6 +75,7 @@ export abstract class MailboxBase implements Provider {
         messageId: parsed.messageId,
         inReplyTo: parsed.inReplyTo,
         references,
+        attachments: mapAttachments(parsed.attachments, opts?.withAttachmentData),
       };
     } finally {
       lock.release();
@@ -88,6 +93,11 @@ export abstract class MailboxBase implements Provider {
       html: input.html,
       inReplyTo: input.inReplyTo,
       references: input.references,
+      attachments: input.attachments?.map((a) => ({
+        filename: a.filename,
+        path: a.path,
+        contentType: a.contentType,
+      })),
     });
     return {
       messageId: info.messageId,
@@ -220,6 +230,33 @@ function toStringList(addr: unknown): string[] {
   if (!addr) return [];
   if (Array.isArray(addr)) return addr.map((a) => String(a));
   return [String(addr)];
+}
+
+type ParsedAttachment = {
+  filename?: string;
+  contentType?: string;
+  size?: number;
+  cid?: string;
+  contentDisposition?: string;
+  content?: Buffer;
+};
+
+function mapAttachments(
+  parsed: ParsedAttachment[] | undefined,
+  withData: boolean | undefined,
+): MessageAttachment[] {
+  if (!parsed || parsed.length === 0) return [];
+  return parsed.map((a, i) => {
+    const meta: MessageAttachment = {
+      filename: a.filename || `attachment-${i + 1}`,
+      contentType: a.contentType ?? "application/octet-stream",
+      size: a.size ?? (a.content ? a.content.length : 0),
+      contentId: a.cid,
+      inline: a.contentDisposition === "inline",
+    };
+    if (withData && a.content) meta.content = a.content;
+    return meta;
+  });
 }
 
 function toAddressList(addr: unknown): string[] {

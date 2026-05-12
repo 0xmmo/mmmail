@@ -148,6 +148,7 @@ program
   .option("-a, --account <email>", "account override")
   .option("--json", "output JSON")
   .option("--include-html", "include the HTML body (omitted by default; can be very large)")
+  .option("--save-attachments <dir>", "save message attachments into this directory")
   .action(async (id, opts) => {
     const { runRead } = await import("./commands/read.js");
     await runRead(id, opts);
@@ -164,6 +165,7 @@ program
     new Option("-b, --body <text>", "body text; use '-' or --body-stdin to read from stdin"),
   )
   .option("--body-stdin", "read body from stdin (avoids leaking via argv)")
+  .option("--attach <path...>", "attach one or more files (repeatable)")
   .option("-a, --account <email>", "account override")
   .option("--json", "output JSON")
   .action(async (opts) => {
@@ -177,6 +179,7 @@ program
   .option("-b, --body <text>", "reply body")
   .option("--body-stdin", "read body from stdin")
   .option("--all", "reply to all (cc original recipients)")
+  .option("--attach <path...>", "attach one or more files (repeatable)")
   .option("-f, --folder <name>", "folder of the original message", "INBOX")
   .option("-a, --account <email>", "account override")
   .option("--json", "output JSON")

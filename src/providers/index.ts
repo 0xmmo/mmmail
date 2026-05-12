@@ -23,6 +23,16 @@ export interface MessageBody {
   inReplyTo?: string;
   references: string[];
   messageId?: string;
+  attachments: MessageAttachment[];
+}
+
+export interface MessageAttachment {
+  filename: string;
+  contentType: string;
+  size: number;
+  contentId?: string;
+  inline: boolean;
+  content?: Buffer;
 }
 
 export interface ListOptions {
@@ -56,6 +66,13 @@ export interface SendInput {
   html?: string;
   inReplyTo?: string;
   references?: string[];
+  attachments?: SendAttachment[];
+}
+
+export interface SendAttachment {
+  filename: string;
+  path: string;
+  contentType?: string;
 }
 
 export interface SendResult {
@@ -66,7 +83,10 @@ export interface SendResult {
 
 export interface Provider {
   list(opts: ListOptions): Promise<MessageSummary[]>;
-  fetch(id: string, opts?: { folder?: string }): Promise<MessageBody>;
+  fetch(
+    id: string,
+    opts?: { folder?: string; withAttachmentData?: boolean },
+  ): Promise<MessageBody>;
   send(input: SendInput): Promise<SendResult>;
   search(query: string, opts?: SearchOptions): Promise<MessageSummary[]>;
   folders(): Promise<string[]>;

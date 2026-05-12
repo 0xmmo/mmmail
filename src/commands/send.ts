@@ -1,9 +1,10 @@
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { accessSync, constants, mkdtempSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, isAbsolute, join, resolve } from "node:path";
 import pc from "picocolors";
 import { resolveAccount } from "../config/store.js";
+import type { SendAttachment } from "../providers/index.js";
 import { getProvider } from "../providers/index.js";
 
 interface SendOpts {
@@ -15,6 +16,7 @@ interface SendOpts {
   bodyStdin?: boolean;
   account?: string;
   json?: boolean;
+  attach?: string[];
   inReplyTo?: string;
   references?: string[];
 }
@@ -43,6 +45,14 @@ export async function runSend(opts: SendOpts): Promise<void> {
     body = await composeInEditor();
   }
 
+  let attachments: SendAttachment[] | undefined;
+  try {
+    attachments = resolveAttachments(opts.attach);
+  } catch (err) {
+    console.error(pc.red(err instanceof Error ? err.message : String(err)));
+    process.exit(1);
+  }
+
   const provider = await getProvider(account);
   try {
     const result = await provider.send({
@@ -53,6 +63,7 @@ export async function runSend(opts: SendOpts): Promise<void> {
       text: body ?? "",
       inReplyTo: opts.inReplyTo,
       references: opts.references,
+      attachments,
     });
     if (opts.json) {
       console.log(JSON.stringify(result, null, 2));
@@ -63,6 +74,31 @@ export async function runSend(opts: SendOpts): Promise<void> {
   } finally {
     await provider.close();
   }
+}
+
+export function resolveAttachments(paths: string[] | undefined): SendAttachment[] | undefined {
+  if (!paths || paths.length === 0) return undefined;
+  const missing: string[] = [];
+  const out: SendAttachment[] = [];
+  for (const p of paths) {
+    const abs = isAbsolute(p) ? p : resolve(process.cwd(), p);
+    try {
+      accessSync(abs, constants.R_OK);
+      const stat = statSync(abs);
+      if (!stat.isFile()) {
+        missing.push(`${p} (not a regular file)`);
+        continue;
+      }
+    } catch {
+      missing.push(p);
+      continue;
+    }
+    out.push({ filename: basename(abs), path: abs });
+  }
+  if (missing.length) {
+    throw new Error(`attachment(s) not readable: ${missing.join(", ")}`);
+  }
+  return out;
 }
 
 async function readStdin(): Promise<string> {

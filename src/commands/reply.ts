@@ -10,6 +10,7 @@ interface ReplyOpts {
   account?: string;
   all?: boolean;
   json?: boolean;
+  attach?: string[];
 }
 
 export async function runReply(id: string, opts: ReplyOpts): Promise<void> {
@@ -51,6 +52,7 @@ export async function runReply(id: string, opts: ReplyOpts): Promise<void> {
     bodyStdin: opts.bodyStdin,
     account: opts.account,
     json: opts.json,
+    attach: opts.attach,
     inReplyTo: original.messageId,
     references,
   });

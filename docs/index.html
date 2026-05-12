@@ -407,6 +407,145 @@
     }
     .callout a.btn:hover { background: var(--postmark); border-color: var(--postmark); }
 
+    /* ─── Setup / Steps lists ─────────────────────────────── */
+    details.setup {
+      border: 1px solid var(--rule);
+      background: var(--paper-deep);
+      margin: 16px 0;
+    }
+    details.setup[open] { background: var(--paper); border-color: var(--ink); }
+    details.setup > summary {
+      list-style: none;
+      cursor: pointer;
+      padding: 20px 28px;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 12px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--postmark);
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    details.setup > summary::-webkit-details-marker { display: none; }
+    details.setup > summary::before {
+      content: "+";
+      font-family: "Fraunces", serif;
+      font-style: italic;
+      font-size: 20px;
+      color: var(--postmark);
+      width: 16px;
+    }
+    details.setup[open] > summary::before { content: "−"; }
+    details.setup .body {
+      padding: 4px 28px 28px;
+      font-family: "Fraunces", serif;
+      font-variation-settings: "opsz" 18;
+      font-size: 16px;
+      line-height: 1.55;
+      color: var(--ink-soft);
+    }
+    details.setup .body p { margin: 6px 0 12px; }
+    details.setup .body ol {
+      padding-left: 22px;
+      margin: 6px 0 18px;
+    }
+    details.setup .body ol li { margin: 4px 0; }
+    details.setup .body a {
+      color: var(--postmark-deep);
+      border-bottom: 1px dotted var(--postmark);
+      text-decoration: none;
+    }
+    details.setup .body a:hover { color: var(--postmark); }
+    details.setup .body .inlinecode {
+      background: var(--ink);
+      color: var(--paper);
+      font-family: "JetBrains Mono", monospace;
+      font-size: 13px;
+      padding: 10px 16px;
+      margin: 8px 0 16px;
+      display: block;
+      overflow-x: auto;
+      white-space: nowrap;
+    }
+
+    /* ─── Command reference grid ──────────────────────────── */
+    .cmdref {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+      margin: 16px 0 56px;
+      border-top: 1px solid var(--ink);
+    }
+    .cmdref .group {
+      padding: 24px 28px;
+      border-bottom: 1px solid var(--rule);
+    }
+    .cmdref .group:nth-child(odd)  { border-right: 1px solid var(--rule); }
+    .cmdref .group h3 {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 11px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--postmark);
+      margin: 0 0 14px;
+      font-weight: 500;
+    }
+    .cmdref .group dl {
+      margin: 0;
+      display: grid;
+      grid-template-columns: max-content 1fr;
+      gap: 8px 18px;
+    }
+    .cmdref .group dt {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 12.5px;
+      color: var(--ink);
+      white-space: nowrap;
+    }
+    .cmdref .group dd {
+      margin: 0;
+      font-family: "Fraunces", serif;
+      font-variation-settings: "opsz" 14;
+      font-size: 14.5px;
+      line-height: 1.45;
+      color: var(--ink-soft);
+    }
+    @media (max-width: 760px) {
+      .cmdref { grid-template-columns: 1fr; }
+      .cmdref .group:nth-child(odd) { border-right: none; }
+      .cmdref .group dl { grid-template-columns: 1fr; gap: 2px 0; }
+      .cmdref .group dd { margin-bottom: 6px; }
+    }
+
+    /* ─── Agent notes list ────────────────────────────────── */
+    .notes {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 28px 56px;
+      margin: 16px 0 56px;
+    }
+    .notes .note h3 {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 11.5px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--postmark);
+      margin: 0 0 8px;
+      font-weight: 500;
+    }
+    .notes .note p {
+      font-family: "Fraunces", serif;
+      font-variation-settings: "opsz" 18;
+      font-size: 16px;
+      line-height: 1.5;
+      color: var(--ink-soft);
+      margin: 0;
+    }
+    @media (max-width: 760px) {
+      .notes { grid-template-columns: 1fr; }
+    }
+
     /* ─── Footer ──────────────────────────────────────────── */
     footer {
       border-top: 1px solid var(--rule);
@@ -477,11 +616,13 @@
 
     <!-- ─── TOP BAR ──────────────────────────────────────── -->
     <nav class="top">
-      <div class="brand"><b>mmm</b> &nbsp;·&nbsp; mmmail &nbsp;·&nbsp; v0.2.0</div>
+      <div class="brand"><b>mmm</b> &nbsp;·&nbsp; mmmail &nbsp;·&nbsp; v0.5.0</div>
       <div class="links">
-        <a href="#features">features</a>
         <a href="#quickstart">quickstart</a>
-        <a href="#providers">providers</a>
+        <a href="#setup">setup</a>
+        <a href="#commands">commands</a>
+        <a href="#attachments">attachments</a>
+        <a href="#agents">agents</a>
         <a href="https://github.com/0xmmo/mmmail">github&nbsp;↗</a>
       </div>
     </nav>
@@ -508,7 +649,7 @@
         </g>
       </svg>
 
-      <div class="eyebrow reveal d1">A CLI mail client &nbsp;·&nbsp; v0.2.0 &nbsp;·&nbsp; Node ≥ 20</div>
+      <div class="eyebrow reveal d1">A CLI mail client &nbsp;·&nbsp; v0.5.0 &nbsp;·&nbsp; Node ≥ 20</div>
 
       <h1 class="title reveal d2">m<em>mm</em>ail<span class="dot">.</span></h1>
 
@@ -573,8 +714,14 @@
 <span class="cm"># send (body via -b, '-' for stdin, omit for $EDITOR)</span>
 <span class="pr">$</span> mmm send <span class="fl">-t</span> a@example.com <span class="fl">-s</span> <span class="ar">"hi"</span> <span class="fl">-b</span> <span class="ar">"hello"</span>
 
+<span class="cm"># attach files (repeatable; works on send and reply)</span>
+<span class="pr">$</span> mmm send <span class="fl">-t</span> a@example.com <span class="fl">-s</span> <span class="ar">"report"</span> <span class="fl">-b</span> <span class="ar">"see attached"</span> <span class="fl">--attach</span> <span class="ar">./report.pdf</span>
+
 <span class="cm"># reply (or reply-all with --all)</span>
 <span class="pr">$</span> mmm reply <span class="ar">1234</span> <span class="fl">-b</span> <span class="ar">"thanks"</span>
+
+<span class="cm"># save attachments from a received message to disk</span>
+<span class="pr">$</span> mmm read <span class="ar">1234</span> <span class="fl">--save-attachments</span> <span class="ar">./out</span>
 
 <span class="cm"># full-text search across the mailbox</span>
 <span class="pr">$</span> mmm search <span class="ar">"invoice"</span></pre>
@@ -618,17 +765,178 @@
       </table>
     </section>
 
-    <!-- ─── GOOGLE SETUP ─────────────────────────────────── -->
-    <section class="sec" id="google">
+    <!-- ─── SETUP ────────────────────────────────────────── -->
+    <section class="sec" id="setup">
       <span class="sec-num">§ 04</span>
-      <div class="kicker">Google setup</div>
-      <h2>Three minutes. <b>Once per machine.</b></h2>
-      <div class="callout">
-        <div class="num">3′</div>
-        <p>
-          Gmail's <code>https://mail.google.com/</code> scope is restricted, so a shared OAuth client isn't possible. <b><code>mmm init</code> walks you through creating your own</b> — the URLs print as clickable links. Stays in testing mode (no verification needed). Up to 100 test users.
-        </p>
-        <a class="btn" href="https://github.com/0xmmo/mmmail#google-setup-one-time-3-min">read the steps&nbsp;↗</a>
+      <div class="kicker">Account setup</div>
+      <h2>Get connected in <b>five minutes</b>.</h2>
+
+      <details class="setup">
+        <summary>Gmail · OAuth (one-time per machine, ~3 min)</summary>
+        <div class="body">
+          <p>Gmail's <code>https://mail.google.com/</code> scope is restricted, so a shared OAuth client isn't possible. You'll create your own desktop OAuth client — <code>mmm init</code> walks you through it. Stays in <b>testing mode</b> (no verification dance), up to 100 test users.</p>
+          <ol>
+            <li>Create a Google Cloud project — <a href="https://console.cloud.google.com/projectcreate">console.cloud.google.com/projectcreate</a></li>
+            <li>Enable the Gmail API — <a href="https://console.cloud.google.com/apis/library/gmail.googleapis.com">console.cloud.google.com/apis/library/gmail</a></li>
+            <li>Configure the OAuth consent screen (Audience: <b>External</b>) — <a href="https://console.cloud.google.com/auth/overview">console.cloud.google.com/auth/overview</a></li>
+            <li>Add yourself as a test user — <a href="https://console.cloud.google.com/auth/audience">console.cloud.google.com/auth/audience</a></li>
+            <li>Create OAuth credentials of type <b>Desktop app</b> — <a href="https://console.cloud.google.com/auth/clients">console.cloud.google.com/auth/clients</a></li>
+            <li>Copy the client ID + secret (or download the JSON), then run:</li>
+          </ol>
+          <span class="inlinecode">mmm add google --email me@gmail.com --credentials-file ./client_secret.json</span>
+          <p>Subsequent Gmail accounts on the same machine skip the project setup and only run the consent flow.</p>
+        </div>
+      </details>
+
+      <details class="setup">
+        <summary>Microsoft · OAuth (zero Azure setup)</summary>
+        <div class="body">
+          <p><code>mmm</code> ships with a built-in Microsoft Entra app (multi-tenant + personal accounts, public client + PKCE, no secret). Just run:</p>
+          <span class="inlinecode">mmm add microsoft --email me@outlook.com</span>
+          <p>You'll see <em>"mmmail"</em> on the consent screen, approve, and you're done.</p>
+          <p><b>Work/school accounts:</b> many M365 tenants disable SMTP AUTH by default. If <code>mmm send</code> fails with <code>SmtpClientAuthentication is disabled</code>, ask your admin to enable <a href="https://learn.microsoft.com/en-us/exchange/clients-and-mobile-in-exchange-online/authenticated-client-smtp-submission">authenticated client SMTP submission</a> for your mailbox.</p>
+          <p><b>Prefer your own Entra app?</b> Register one (Account type: <em>Accounts in any organizational directory and personal Microsoft accounts</em>), add <code>http://localhost</code> as a <b>Mobile and desktop applications</b> redirect URI, enable <b>Allow public client flows</b>, then pass your client ID:</p>
+          <span class="inlinecode">mmm add microsoft --email me@outlook.com --client-id &lt;your-id&gt;</span>
+        </div>
+      </details>
+
+      <details class="setup">
+        <summary>IMAP / SMTP · App password</summary>
+        <div class="body">
+          <p>Fastmail, iCloud, Yahoo, and any standard IMAP host work via app password — stored in your OS keychain, never in the config file.</p>
+          <span class="inlinecode">mmm add imap --email me@example.com --preset fastmail --password-stdin</span>
+          <p>Without a preset, pass <code>--imap-host</code>, <code>--imap-port</code>, <code>--smtp-host</code>, <code>--smtp-port</code> explicitly. Use <code>--smtp-password-stdin</code> if your provider requires a different password for SMTP.</p>
+        </div>
+      </details>
+    </section>
+
+    <!-- ─── COMMANDS ─────────────────────────────────────── -->
+    <section class="sec" id="commands">
+      <span class="sec-num">§ 05</span>
+      <div class="kicker">Command reference</div>
+      <h2>Every command, in <b>one place</b>.</h2>
+      <div class="cmdref">
+
+        <div class="group">
+          <h3>// reading</h3>
+          <dl>
+            <dt>mmm list</dt>
+            <dd>20 most recent in a folder. Flags: <code>-f &lt;name&gt;</code>, <code>-n &lt;limit&gt;</code>, <code>-u</code> (unread only), <code>--since</code>, <code>--before</code>, <code>--uid-after</code>.</dd>
+            <dt>mmm read &lt;uid&gt;</dt>
+            <dd>Open one message. <code>-f &lt;folder&gt;</code>, <code>--include-html</code> (large), <code>--save-attachments &lt;dir&gt;</code>.</dd>
+            <dt>mmm search &lt;q&gt;</dt>
+            <dd>Full-text across subject/body/from. Same time/pagination flags as <code>list</code>.</dd>
+            <dt>mmm folders</dt>
+            <dd>List available IMAP folders for the active account.</dd>
+          </dl>
+        </div>
+
+        <div class="group">
+          <h3>// writing</h3>
+          <dl>
+            <dt>mmm send</dt>
+            <dd><code>-t &lt;addr...&gt; -s &lt;subj&gt;</code>. Body: <code>-b</code>, <code>--body-stdin</code>, or omit for <code>$EDITOR</code>. <code>-c</code>/<code>-B</code> for cc/bcc, <code>--attach &lt;path...&gt;</code> for files.</dd>
+            <dt>mmm reply &lt;uid&gt;</dt>
+            <dd>Auto-threads (In-Reply-To, References). <code>--all</code> for reply-all, <code>--attach</code> for files.</dd>
+          </dl>
+        </div>
+
+        <div class="group">
+          <h3>// mailbox actions</h3>
+          <dl>
+            <dt>mmm mark &lt;uid&gt;</dt>
+            <dd><code>--read</code> / <code>--unread</code>, <code>--flagged</code> / <code>--unflagged</code>.</dd>
+            <dt>mmm move &lt;uid&gt; &lt;dest&gt;</dt>
+            <dd>Move to another folder, e.g. <code>"[Gmail]/All Mail"</code>.</dd>
+            <dt>mmm delete &lt;uid&gt;</dt>
+            <dd>Permanent — sets <code>\Deleted</code> and EXPUNGEs.</dd>
+          </dl>
+        </div>
+
+        <div class="group">
+          <h3>// accounts &amp; health</h3>
+          <dl>
+            <dt>mmm</dt>
+            <dd>Interactive dashboard (TTY); non-TTY prints help and exits 2.</dd>
+            <dt>mmm accounts</dt>
+            <dd>List configured accounts. <code>mmm default &lt;email&gt;</code> sets the active one, <code>mmm remove</code> drops it.</dd>
+            <dt>mmm add &lt;provider&gt;</dt>
+            <dd>Non-interactive: <code>google</code>, <code>microsoft</code>, <code>imap</code>. See <a href="#setup">§ 04 setup</a>.</dd>
+            <dt>mmm doctor</dt>
+            <dd>Probe every account; exits 1 on any failure — easy CI gate.</dd>
+          </dl>
+        </div>
+
+      </div>
+      <p style="font-family:'Fraunces',serif;font-variation-settings:'opsz' 18;font-size:16px;line-height:1.55;color:var(--ink-soft);max-width:720px;margin:-32px 0 56px;">
+        Every command takes <code>-a, --account &lt;email&gt;</code> to override the default account, and <code>--json</code> for machine-readable output.
+      </p>
+    </section>
+
+    <!-- ─── ATTACHMENTS ──────────────────────────────────── -->
+    <section class="sec" id="attachments">
+      <span class="sec-num">§ 06</span>
+      <div class="kicker">Attachments</div>
+      <h2>Send files. <b>Save</b> them out.</h2>
+      <p style="font-family:'Fraunces',serif;font-variation-settings:'opsz' 24;font-size:19px;line-height:1.5;color:var(--ink-soft);max-width:680px;margin:0 0 28px;font-weight:350;">
+        Attach files to outgoing mail with <code>--attach</code> (repeatable). On the way in, list attachments in the message view automatically; pull the bytes to disk with <code>--save-attachments</code>.
+      </p>
+<pre class="codeblock"><span class="cm"># attach one or many files (works on send and reply)</span>
+<span class="pr">$</span> mmm send <span class="fl">-t</span> a@example.com <span class="fl">-s</span> <span class="ar">"Q3 numbers"</span> <span class="fl">-b</span> <span class="ar">"see attached"</span> \
+    <span class="fl">--attach</span> <span class="ar">./report.pdf</span> <span class="fl">--attach</span> <span class="ar">./spreadsheet.xlsx</span>
+
+<span class="pr">$</span> mmm reply <span class="ar">1234</span> <span class="fl">--attach</span> <span class="ar">./signed.pdf</span>
+
+<span class="cm"># attachments appear in the rendered message</span>
+<span class="pr">$</span> mmm read <span class="ar">1234</span>
+<span class="cm">Subject: Q3 numbers</span>
+<span class="cm">From:    a@example.com</span>
+<span class="cm">Attachments:</span>
+<span class="cm">  1. report.pdf (application/pdf, 124.2 KB)</span>
+<span class="cm">  2. spreadsheet.xlsx (application/vnd.openxmlformats-..., 38.4 KB)</span>
+
+<span class="cm"># save them to disk — collisions get -1, -2, ... suffixes</span>
+<span class="pr">$</span> mmm read <span class="ar">1234</span> <span class="fl">--save-attachments</span> <span class="ar">./out</span>
+<span class="cm">✓ saved /Users/you/out/report.pdf</span>
+<span class="cm">✓ saved /Users/you/out/spreadsheet.xlsx</span>
+
+<span class="cm"># JSON output for agents</span>
+<span class="pr">$</span> mmm read <span class="ar">1234</span> <span class="fl">--save-attachments</span> <span class="ar">./out</span> <span class="fl">--json</span> | jq <span class="ar">.attachments</span></pre>
+      <p style="font-family:'Fraunces',serif;font-variation-settings:'opsz' 18;font-size:15.5px;line-height:1.55;color:var(--ink-faint);max-width:720px;margin:-28px 0 24px;">
+        Filenames are sanitised (path separators stripped, leading dots removed); empty/invalid names fall back to <code>attachment-N</code>. <code>--json</code> includes <code>filename</code>, <code>contentType</code>, <code>size</code>, <code>contentId</code>, <code>inline</code>, and (when saved) <code>savedPath</code>.
+      </p>
+    </section>
+
+    <!-- ─── AGENTS ───────────────────────────────────────── -->
+    <section class="sec" id="agents">
+      <span class="sec-num">§ 07</span>
+      <div class="kicker">For agents &amp; scripts</div>
+      <h2>Built to be <b>piped</b>.</h2>
+      <div class="notes">
+        <div class="note">
+          <h3>// --json everywhere</h3>
+          <p>Every data command supports <code>--json</code> — list, read, search, send, reply, mark, move, delete, folders, doctor, accounts.</p>
+        </div>
+        <div class="note">
+          <h3>// fail-fast bare invocation</h3>
+          <p><code>mmm</code> with no subcommand in a non-TTY exits status <b>2</b>, so scripts that forgot a command fail loudly instead of hanging on a dashboard.</p>
+        </div>
+        <div class="note">
+          <h3>// health gate</h3>
+          <p><code>mmm doctor --json</code> exits <b>1</b> if any account fails to connect — drop it into CI as a tripwire.</p>
+        </div>
+        <div class="note">
+          <h3>// secrets off argv</h3>
+          <p><code>--body-stdin</code>, <code>--password-stdin</code>, <code>--client-secret-stdin</code> keep secrets out of <code>argv</code> and shell history.</p>
+        </div>
+        <div class="note">
+          <h3>// pagination</h3>
+          <p><code>--uid-after &lt;n&gt;</code> for incremental sync, <code>--since</code> / <code>--before</code> for time windows. Works on <code>list</code> and <code>search</code>.</p>
+        </div>
+        <div class="note">
+          <h3>// HTML off by default</h3>
+          <p><code>read --json</code> drops the HTML body (often 50× the text). Pass <code>--include-html</code> when you need it.</p>
+        </div>
       </div>
     </section>
 
