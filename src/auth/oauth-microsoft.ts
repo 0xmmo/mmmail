@@ -16,6 +16,13 @@ const EXCHANGE_SCOPES = [
   "https://outlook.office.com/SMTP.Send",
 ];
 const GRAPH_SCOPES = ["https://graph.microsoft.com/MailboxSettings.ReadWrite"];
+// Note: we'd love to add `Mail.ReadBasic` so we could enumerate /me/mailFolders
+// and translate the opaque folder IDs that appear in messageRule actions to
+// human-readable paths. But Entra's /common endpoint rejects the combination
+// of Mail.ReadBasic + outlook.office.com IMAP/SMTP scopes with AADSTS70011
+// "not compatible". For now folder targets surface as raw Graph IDs and the
+// agent must pass folder IDs (not paths) on create. The fallback in
+// `folderName()` swallows the 403.
 
 const CONSENT_SCOPES = ["offline_access", ...EXCHANGE_SCOPES, ...GRAPH_SCOPES].join(" ");
 
