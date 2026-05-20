@@ -154,12 +154,14 @@ export class GoogleProvider extends MailboxBase {
   }
 
   override async listRules(): Promise<RuleEntry[]> {
-    const data = await this.gapi<{ filter?: GmailFilterRaw[] }>(
+    // Gmail returns 204 No Content (not 200 {}) when the user has no
+    // filters — gapi yields undefined in that case.
+    const data = await this.gapi<{ filter?: GmailFilterRaw[] } | undefined>(
       "GET",
       "/gmail/v1/users/me/settings/filters",
     );
     const out: RuleEntry[] = [];
-    for (const f of data.filter ?? []) {
+    for (const f of data?.filter ?? []) {
       out.push(await this.toEntry(f));
     }
     return out;

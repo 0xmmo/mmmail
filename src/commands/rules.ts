@@ -184,8 +184,20 @@ async function readRuleInput(
     const msg = err instanceof Error ? err.message : String(err);
     throw new Error(`--from-json: invalid JSON (${msg})`);
   }
+  const obj =
+    parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : {};
   if (account.kind === "google") {
+    if ("displayName" in obj || "actions" in obj || "conditions" in obj) {
+      throw new Error(
+        `Account ${account.email} is Gmail — expected a body with "criteria"/"action", got one that looks like a Graph messageRule.`,
+      );
+    }
     return { kind: "gmail", input: validateGmailInput(parsed) };
+  }
+  if ("criteria" in obj || "action" in obj) {
+    throw new Error(
+      `Account ${account.email} is Microsoft — expected a body with "displayName"/"actions"/"conditions", got one that looks like a Gmail filter.`,
+    );
   }
   return { kind: "microsoft", input: validateGraphInput(parsed) };
 }
