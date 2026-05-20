@@ -4,7 +4,12 @@ import { URL } from "node:url";
 import { OAuth2Client } from "google-auth-library";
 import open from "open";
 
-const SCOPE = "https://mail.google.com/";
+// Mail access + manage Gmail server-side filters. gmail.settings.basic is the
+// minimum scope for `users.settings.filters` — there is no read-only variant.
+const SCOPES = [
+  "https://mail.google.com/",
+  "https://www.googleapis.com/auth/gmail.settings.basic",
+];
 
 export interface ConsentResult {
   refreshToken: string;
@@ -29,7 +34,7 @@ export async function runConsentFlow(opts: {
   const authUrl = client.generateAuthUrl({
     access_type: "offline",
     prompt: "consent",
-    scope: [SCOPE],
+    scope: SCOPES,
     login_hint: opts.loginHint,
   });
 

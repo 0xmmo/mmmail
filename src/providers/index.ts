@@ -1,4 +1,13 @@
 import type { AccountConfig } from "../config/store.js";
+import type {
+  RuleEntry,
+  GmailFilterInput,
+  GraphMessageRuleInput,
+} from "./rules.js";
+
+export type RuleInput =
+  | { kind: "gmail"; input: GmailFilterInput }
+  | { kind: "microsoft"; input: GraphMessageRuleInput };
 
 export interface MessageSummary {
   id: string;
@@ -97,6 +106,14 @@ export interface Provider {
   setFlags(id: string, flags: SetFlagsInput, opts?: { folder?: string }): Promise<void>;
   move(id: string, dest: string, opts?: { folder?: string }): Promise<void>;
   del(id: string, opts?: { folder?: string }): Promise<void>;
+  listRules(): Promise<RuleEntry[]>;
+  getRule(id: string): Promise<RuleEntry>;
+  createRule(input: RuleInput): Promise<RuleEntry>;
+  updateRule(id: string, input: RuleInput): Promise<RuleEntry>;
+  deleteRule(id: string): Promise<void>;
+  // Outlook-only operations. Gmail/IMAP providers throw RulesNotSupportedError.
+  setRuleEnabled(id: string, enabled: boolean): Promise<RuleEntry>;
+  setRulesOrder(ids: string[]): Promise<void>;
   close(): Promise<void>;
 }
 

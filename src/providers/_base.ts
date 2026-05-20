@@ -7,11 +7,13 @@ import type {
   MessageBody,
   MessageSummary,
   Provider,
+  RuleInput,
   SearchOptions,
   SendInput,
   SendResult,
   SetFlagsInput,
 } from "./index.js";
+import { RulesNotSupportedError, type RuleEntry } from "./rules.js";
 
 interface SearchObject {
   all?: boolean;
@@ -186,6 +188,51 @@ export abstract class MailboxBase implements Provider {
     return this.withMailbox(folder, "delete", async () => {
       await this.client.messageDelete(id, { uid: true });
     });
+  }
+
+  // Rules live on provider-specific HTTP APIs (Gmail / Graph). Generic IMAP
+  // accounts have no equivalent — OAuth providers override these. Sieve
+  // (RFC 5804) could plug in later as a third backend.
+  async listRules(): Promise<RuleEntry[]> {
+    throw this.rulesUnsupported();
+  }
+
+  async getRule(_id: string): Promise<RuleEntry> {
+    void _id;
+    throw this.rulesUnsupported();
+  }
+
+  async createRule(_input: RuleInput): Promise<RuleEntry> {
+    void _input;
+    throw this.rulesUnsupported();
+  }
+
+  async updateRule(_id: string, _input: RuleInput): Promise<RuleEntry> {
+    void _id;
+    void _input;
+    throw this.rulesUnsupported();
+  }
+
+  async deleteRule(_id: string): Promise<void> {
+    void _id;
+    throw this.rulesUnsupported();
+  }
+
+  async setRuleEnabled(_id: string, _enabled: boolean): Promise<RuleEntry> {
+    void _id;
+    void _enabled;
+    throw this.rulesUnsupported();
+  }
+
+  async setRulesOrder(_ids: string[]): Promise<void> {
+    void _ids;
+    throw this.rulesUnsupported();
+  }
+
+  private rulesUnsupported(): RulesNotSupportedError {
+    return new RulesNotSupportedError(
+      `Server-side rules aren't available on plain IMAP accounts (${this.fromAddress}). Sieve support isn't implemented yet.`,
+    );
   }
 
   async close(): Promise<void> {

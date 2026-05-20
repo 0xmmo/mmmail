@@ -218,6 +218,101 @@ program
     await runFolders(opts);
   });
 
+const rulesCmd = program
+  .command("rules")
+  .description("Manage server-side mail rules (Gmail filters / Outlook inbox rules)");
+
+rulesCmd
+  .command("list")
+  .description("List rules on the account")
+  .option("-a, --account <email>", "account override")
+  .option("--json", "output JSON")
+  .action(async (opts) => {
+    const { runRulesList } = await import("./commands/rules.js");
+    await runRulesList(opts);
+  });
+
+rulesCmd
+  .command("show <id>")
+  .description("Show a rule by id")
+  .option("-a, --account <email>", "account override")
+  .option("--json", "output JSON")
+  .action(async (id, opts) => {
+    const { runRulesShow } = await import("./commands/rules.js");
+    await runRulesShow(id, opts);
+  });
+
+rulesCmd
+  .command("create")
+  .description("Create a rule from a JSON file or stdin")
+  .requiredOption("--from-json <path>", "JSON file with the rule body; '-' for stdin")
+  .option("-a, --account <email>", "account override")
+  .option("--json", "output JSON")
+  .action(async (opts) => {
+    const { runRulesCreate } = await import("./commands/rules.js");
+    await runRulesCreate(opts);
+  });
+
+rulesCmd
+  .command("update <id>")
+  .description("Update a rule (Gmail: create-new + delete-old)")
+  .requiredOption("--from-json <path>", "JSON file with the rule body; '-' for stdin")
+  .option("-a, --account <email>", "account override")
+  .option("--json", "output JSON")
+  .action(async (id, opts) => {
+    const { runRulesUpdate } = await import("./commands/rules.js");
+    await runRulesUpdate(id, opts);
+  });
+
+rulesCmd
+  .command("delete <id>")
+  .description("Delete a rule by id")
+  .option("-a, --account <email>", "account override")
+  .option("--json", "output JSON")
+  .action(async (id, opts) => {
+    const { runRulesDelete } = await import("./commands/rules.js");
+    await runRulesDelete(id, opts);
+  });
+
+rulesCmd
+  .command("enable <id>")
+  .description("Enable a rule (Outlook only)")
+  .option("-a, --account <email>", "account override")
+  .option("--json", "output JSON")
+  .action(async (id, opts) => {
+    const { runRulesEnable } = await import("./commands/rules.js");
+    await runRulesEnable(id, true, opts);
+  });
+
+rulesCmd
+  .command("disable <id>")
+  .description("Disable a rule (Outlook only)")
+  .option("-a, --account <email>", "account override")
+  .option("--json", "output JSON")
+  .action(async (id, opts) => {
+    const { runRulesEnable } = await import("./commands/rules.js");
+    await runRulesEnable(id, false, opts);
+  });
+
+rulesCmd
+  .command("reorder <ids>")
+  .description("Reorder rules (Outlook only); pass comma-separated ids in desired order")
+  .option("-a, --account <email>", "account override")
+  .option("--json", "output JSON")
+  .action(async (ids, opts) => {
+    const { runRulesReorder } = await import("./commands/rules.js");
+    await runRulesReorder(ids, opts);
+  });
+
+program
+  .command("reauth <email>")
+  .description("Re-run OAuth consent for an account (picks up new scopes)")
+  .option("--json", "output JSON")
+  .action(async (email, opts) => {
+    const { runReauth } = await import("./commands/reauth.js");
+    await runReauth(email, opts);
+  });
+
 program
   .command("doctor")
   .description("Verify each account can connect and fetch INBOX")

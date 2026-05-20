@@ -6,8 +6,25 @@ import open from "open";
 
 const AUTHORIZE = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize";
 const TOKEN = "https://login.microsoftonline.com/common/oauth2/v2.0/token";
-const SCOPES =
-  "offline_access https://outlook.office.com/IMAP.AccessAsUser.All https://outlook.office.com/SMTP.Send";
+
+// Microsoft tokens are per-resource: a single refresh token can mint access
+// tokens for either Exchange (IMAP/SMTP) or Graph by passing the matching
+// scope set on refresh. We consent to the union up front; refresh() picks one
+// resource at a time.
+const EXCHANGE_SCOPES = [
+  "https://outlook.office.com/IMAP.AccessAsUser.All",
+  "https://outlook.office.com/SMTP.Send",
+];
+const GRAPH_SCOPES = ["https://graph.microsoft.com/MailboxSettings.ReadWrite"];
+
+const CONSENT_SCOPES = ["offline_access", ...EXCHANGE_SCOPES, ...GRAPH_SCOPES].join(" ");
+
+export type MicrosoftResource = "exchange" | "graph";
+
+function scopesFor(resource: MicrosoftResource): string {
+  const set = resource === "graph" ? GRAPH_SCOPES : EXCHANGE_SCOPES;
+  return ["offline_access", ...set].join(" ");
+}
 
 // mmmail's shared Microsoft Entra app — multi-tenant + personal accounts,
 // public client (PKCE), redirect `http://localhost`. Lets users authorize
@@ -42,7 +59,7 @@ export async function runConsentFlow(opts: {
     response_type: "code",
     redirect_uri: redirectUri,
     response_mode: "query",
-    scope: SCOPES,
+    scope: CONSENT_SCOPES,
     state,
     code_challenge: challenge,
     code_challenge_method: "S256",
@@ -62,7 +79,7 @@ export async function runConsentFlow(opts: {
       code,
       redirect_uri: redirectUri,
       code_verifier: verifier,
-      scope: SCOPES,
+      scope: CONSENT_SCOPES,
     });
     if (!tokens.refresh_token) {
       throw new Error(
@@ -82,19 +99,18 @@ export async function runConsentFlow(opts: {
 export async function refreshAccessToken(opts: {
   clientId: string;
   refreshToken: string;
+  resource?: MicrosoftResource; // defaults to "exchange" for back-compat
 }): Promise<{ accessToken: string; expiresAt: number; refreshToken: string }> {
+  const resource = opts.resource ?? "exchange";
   const tokens = await exchange({
     grant_type: "refresh_token",
     client_id: opts.clientId,
     refresh_token: opts.refreshToken,
-    scope: SCOPES,
+    scope: scopesFor(resource),
   });
   if (!tokens.access_token) {
     throw new Error("Microsoft did not return an access token on refresh");
   }
-  // Microsoft rotates the refresh token on every refresh — return the new
-  // one so the caller can persist it. Fall back to the old one if for some
-  // reason the response omits it.
   return {
     accessToken: tokens.access_token,
     expiresAt: Date.now() + (tokens.expires_in ?? 3500) * 1000,
