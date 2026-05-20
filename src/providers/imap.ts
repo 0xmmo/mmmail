@@ -4,7 +4,7 @@ import type {
   AccountConfig,
 } from "../config/store.js";
 import { getSecret } from "../auth/secrets.js";
-import { MailboxBase } from "./_base.js";
+import { MailboxBase, type ImapConnector } from "./_base.js";
 
 export class ImapProvider extends MailboxBase {
   static async connect(account: AccountConfig): Promise<ImapProvider> {
@@ -17,14 +17,18 @@ export class ImapProvider extends MailboxBase {
         `No IMAP password stored for ${account.email}. Run \`mmm init\` again.`,
       );
     }
-    const client = new ImapFlow({
-      host: account.imap.host,
-      port: account.imap.port,
-      secure: account.imap.secure,
-      auth: { user: account.imap.user, pass: imapPassword },
-      logger: false,
-    });
-    await client.connect();
+    const connector: ImapConnector = async () => {
+      const c = new ImapFlow({
+        host: account.imap.host,
+        port: account.imap.port,
+        secure: account.imap.secure,
+        auth: { user: account.imap.user, pass: imapPassword },
+        logger: false,
+      });
+      await c.connect();
+      return c;
+    };
+    const client = await connector();
 
     const smtpPassword =
       (await getSecret("smtp-password", account.email)) ?? imapPassword;
@@ -34,6 +38,6 @@ export class ImapProvider extends MailboxBase {
       secure: account.smtp.secure,
       auth: { user: account.smtp.user, pass: smtpPassword },
     });
-    return new ImapProvider(account.email, client, smtp);
+    return new ImapProvider(account.email, client, smtp, connector);
   }
 }

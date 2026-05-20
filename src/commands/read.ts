@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { extname, isAbsolute, join, resolve } from "node:path";
 import pc from "picocolors";
 import { resolveAccount } from "../config/store.js";
-import type { MessageAttachment } from "../providers/index.js";
+import type { MessageAttachment, MessageBody } from "../providers/index.js";
 import { getProvider } from "../providers/index.js";
 import { renderMessage } from "../ui/pager.js";
 
@@ -12,18 +12,51 @@ interface ReadOpts {
   json?: boolean;
   includeHtml?: boolean;
   saveAttachments?: string;
+  batch?: string;
 }
 
 interface SavedAttachment extends MessageAttachment {
   savedPath?: string;
 }
 
-export async function runRead(id: string, opts: ReadOpts): Promise<void> {
+export async function runRead(id: string | undefined, opts: ReadOpts): Promise<void> {
   const account = await resolveAccount(opts.account);
   if (!account) {
     console.error(pc.red("No account configured. Run `mmm init`."));
     process.exit(1);
   }
+
+  if (opts.batch !== undefined) {
+    if (id) {
+      console.error(pc.red("Pass UIDs via --batch OR a positional id, not both."));
+      process.exit(1);
+    }
+    const ids = await readBatchIds(opts.batch);
+    if (ids.length === 0) {
+      console.error(pc.red("--batch: no UIDs provided."));
+      process.exit(1);
+    }
+    if (opts.saveAttachments) {
+      console.error(pc.red("--save-attachments isn't supported with --batch."));
+      process.exit(1);
+    }
+    const provider = await getProvider(account);
+    try {
+      const msgs = await provider.fetchMany(ids, { folder: opts.folder });
+      if (!opts.includeHtml) for (const m of msgs) m.html = undefined;
+      // JSON is the only sensible output for batch.
+      console.log(JSON.stringify(msgs, null, 2));
+    } finally {
+      await provider.close();
+    }
+    return;
+  }
+
+  if (!id) {
+    console.error(pc.red("missing message id (or pass --batch <uid,uid,...> / --batch -)"));
+    process.exit(1);
+  }
+
   const provider = await getProvider(account);
   try {
     const msg = await provider.fetch(id, {
@@ -56,6 +89,22 @@ export async function runRead(id: string, opts: ReadOpts): Promise<void> {
   } finally {
     await provider.close();
   }
+}
+
+async function readBatchIds(value: string): Promise<string[]> {
+  const raw = value === "-" ? await readStdin() : value;
+  return raw
+    .split(/[\s,]+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+async function readStdin(): Promise<string> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of process.stdin) {
+    chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : chunk);
+  }
+  return Buffer.concat(chunks).toString("utf8");
 }
 
 export function saveAttachments(

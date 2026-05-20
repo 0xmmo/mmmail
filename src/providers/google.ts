@@ -6,7 +6,7 @@ import {
   getSecret,
 } from "../auth/secrets.js";
 import { refreshAccessToken } from "../auth/oauth-google.js";
-import { MailboxBase } from "./_base.js";
+import { MailboxBase, type ImapConnector } from "./_base.js";
 
 export class GoogleProvider extends MailboxBase {
   static async connect(account: AccountConfig): Promise<GoogleProvider> {
@@ -29,6 +29,23 @@ export class GoogleProvider extends MailboxBase {
       clientSecret,
       refreshToken,
     });
+
+    const connector: ImapConnector = async () => {
+      const { accessToken: token } = await refreshAccessToken({
+        clientId,
+        clientSecret,
+        refreshToken,
+      });
+      const c = new ImapFlow({
+        host: "imap.gmail.com",
+        port: 993,
+        secure: true,
+        auth: { user: account.email, accessToken: token },
+        logger: false,
+      });
+      await c.connect();
+      return c;
+    };
 
     const client = new ImapFlow({
       host: "imap.gmail.com",
@@ -53,6 +70,6 @@ export class GoogleProvider extends MailboxBase {
       },
     });
 
-    return new GoogleProvider(account.email, client, smtp);
+    return new GoogleProvider(account.email, client, smtp, connector);
   }
 }

@@ -6,7 +6,7 @@ import {
   DEFAULT_CLIENT_ID,
   refreshAccessToken,
 } from "../auth/oauth-microsoft.js";
-import { MailboxBase } from "./_base.js";
+import { MailboxBase, type ImapConnector } from "./_base.js";
 
 export class MicrosoftProvider extends MailboxBase {
   static async connect(account: AccountConfig): Promise<MicrosoftProvider> {
@@ -18,18 +18,36 @@ export class MicrosoftProvider extends MailboxBase {
     const clientId =
       (await getSecret("oauth-client-id", account.email)) ||
       DEFAULT_CLIENT_ID;
-    const refreshToken = await getSecret("oauth-refresh", account.email);
-    if (!clientId || !refreshToken) {
+    const storedRefresh = await getSecret("oauth-refresh", account.email);
+    if (!clientId || !storedRefresh) {
       throw new Error(
         `Microsoft credentials missing for ${account.email}. Run \`mmm init\` to authorize.`,
       );
     }
+    let refreshToken: string = storedRefresh;
 
     const refreshed = await refreshAccessToken({ clientId, refreshToken });
-    // Microsoft rotates the refresh token on every refresh — persist it.
     if (refreshed.refreshToken !== refreshToken) {
       await setSecret("oauth-refresh", account.email, refreshed.refreshToken);
+      refreshToken = refreshed.refreshToken;
     }
+
+    const connector: ImapConnector = async () => {
+      const r = await refreshAccessToken({ clientId, refreshToken });
+      if (r.refreshToken !== refreshToken) {
+        await setSecret("oauth-refresh", account.email, r.refreshToken);
+        refreshToken = r.refreshToken;
+      }
+      const c = new ImapFlow({
+        host: "outlook.office365.com",
+        port: 993,
+        secure: true,
+        auth: { user: account.email, accessToken: r.accessToken },
+        logger: false,
+      });
+      await c.connect();
+      return c;
+    };
 
     const client = new ImapFlow({
       host: "outlook.office365.com",
@@ -52,6 +70,6 @@ export class MicrosoftProvider extends MailboxBase {
       },
     });
 
-    return new MicrosoftProvider(account.email, client, smtp);
+    return new MicrosoftProvider(account.email, client, smtp, connector);
   }
 }

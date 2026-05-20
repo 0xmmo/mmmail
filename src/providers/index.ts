@@ -87,6 +87,10 @@ export interface Provider {
     id: string,
     opts?: { folder?: string; withAttachmentData?: boolean },
   ): Promise<MessageBody>;
+  fetchMany(
+    ids: string[],
+    opts?: { folder?: string; withAttachmentData?: boolean },
+  ): Promise<MessageBody[]>;
   send(input: SendInput): Promise<SendResult>;
   search(query: string, opts?: SearchOptions): Promise<MessageSummary[]>;
   folders(): Promise<string[]>;

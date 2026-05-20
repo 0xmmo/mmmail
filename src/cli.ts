@@ -143,13 +143,17 @@ program
   });
 
 program
-  .command("read <id>")
-  .description("Read a message by id (UID)")
+  .command("read [id]")
+  .description("Read a message by id (UID), or many with --batch")
   .option("-f, --folder <name>", "folder name", "INBOX")
   .option("-a, --account <email>", "account override")
   .option("--json", "output JSON")
   .option("--include-html", "include the HTML body (omitted by default; can be very large)")
   .option("--save-attachments <dir>", "save message attachments into this directory")
+  .option(
+    "--batch <uids>",
+    "fetch many UIDs in a single IMAP session; comma/space-separated, or '-' to read from stdin (always JSON)",
+  )
   .action(async (id, opts) => {
     const { runRead } = await import("./commands/read.js");
     await runRead(id, opts);
