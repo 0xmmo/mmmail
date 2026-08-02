@@ -451,7 +451,8 @@ export class MicrosoftProvider extends MailboxBase {
       const paths = await this.loadFolderPaths();
       for (const [p, fid] of paths) if (fid === id) return p;
     } catch {
-      // best-effort — fall back to id
+      // Folder enumeration requires Mail.ReadBasic. Accounts authorized before
+      // that scope was added will 403 here — show the raw ID, don't crash.
     }
     return id;
   }
