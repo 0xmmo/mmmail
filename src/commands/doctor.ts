@@ -1,9 +1,11 @@
 import pc from "picocolors";
 import { readConfig, type AccountConfig } from "../config/store.js";
 import { getProvider } from "../providers/index.js";
+import { rehomeSecrets } from "../auth/secrets.js";
 
 interface DoctorOpts {
   json?: boolean;
+  fix?: boolean;
 }
 
 interface AccountReport {
@@ -26,6 +28,19 @@ export async function runDoctor(opts: DoctorOpts): Promise<void> {
     return;
   }
 
+  let fixReport: { rehomed: string[]; skipped: string[] } | undefined;
+  if (opts.fix) {
+    fixReport = await rehomeSecrets(accounts.map((a) => a.email));
+    if (!opts.json) {
+      for (const key of fixReport.rehomed) {
+        console.log(`  ${pc.green("✓")} rehomed keychain item ${pc.dim(key)}`);
+      }
+      if (fixReport.rehomed.length === 0) {
+        console.log(pc.dim("  no readable keychain items to rehome"));
+      }
+    }
+  }
+
   const reports: AccountReport[] = [];
   for (const a of accounts) {
     reports.push(await checkAccount(a));
@@ -34,7 +49,11 @@ export async function runDoctor(opts: DoctorOpts): Promise<void> {
   if (opts.json) {
     console.log(
       JSON.stringify(
-        { defaultAccount: cfg.defaultAccount, accounts: reports },
+        {
+          defaultAccount: cfg.defaultAccount,
+          accounts: reports,
+          ...(fixReport ? { fix: fixReport } : {}),
+        },
         null,
         2,
       ),

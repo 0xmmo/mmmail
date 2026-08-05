@@ -316,6 +316,10 @@ program
 program
   .command("doctor")
   .description("Verify each account can connect and fetch INBOX")
+  .option(
+    "--fix",
+    "re-save readable secrets so keychain items are owned by the current binary (stops repeated macOS permission prompts)",
+  )
   .option("--json", "output JSON")
   .action(async (opts) => {
     const { runDoctor } = await import("./commands/doctor.js");
