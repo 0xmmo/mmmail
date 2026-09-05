@@ -18,7 +18,7 @@ mmm search "invoice"
 mmm doctor --json                              # CI gate (exits 1 on failure)
 ```
 
-**Full documentation, setup guides, and command reference:** <https://blog.0xmmo.co/mmmail/>
+**Full documentation, setup guides, and command reference:** <https://mmoustafa.com/blog/mmmail/>
 
 ## Development
 

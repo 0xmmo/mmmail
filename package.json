@@ -42,7 +42,7 @@
   "bugs": {
     "url": "https://github.com/0xmmo/mmmail/issues"
   },
-  "homepage": "https://blog.0xmmo.co/mmmail/",
+  "homepage": "https://mmoustafa.com/blog/mmmail/",
   "publishConfig": {
     "access": "public"
   },
