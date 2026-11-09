@@ -1,7 +1,19 @@
+import { execFileSync } from "node:child_process";
 import { Entry } from "@napi-rs/keyring";
 import pc from "picocolors";
 
 const SERVICE = "mmmail";
+
+// On macOS a keychain item's ACL trusts the binary that created it. Created
+// through @napi-rs/keyring that's node, which Homebrew ships ad-hoc signed, so
+// every node upgrade looks like a new app and re-prompts for every item.
+// Items created by Apple's /usr/bin/security trust that binary instead, whose
+// identity survives node upgrades, so reads through it are silent for good.
+// Those items carry MAC_MARKER in their comment and store the value
+// base64-encoded (`-w` prints non-ASCII passwords as hex otherwise).
+const SECURITY = "/usr/bin/security";
+const MAC_MARKER = "mmmail:security-v1";
+const useSecurityCli = process.platform === "darwin";
 
 export type SecretKind =
   | "imap-password"
@@ -29,7 +41,7 @@ function warnUnreadable(key: string, err: unknown): void {
   );
 }
 
-function writeSecret(key: string, value: string): void {
+function keyringWrite(key: string, value: string): void {
   try {
     entry(key).setPassword(value);
   } catch {
@@ -41,7 +53,7 @@ function writeSecret(key: string, value: string): void {
   }
 }
 
-function readSecret(key: string): string | null {
+function keyringRead(key: string): string | null {
   try {
     return entry(key).getPassword() ?? null;
   } catch (err) {
@@ -50,6 +62,99 @@ function readSecret(key: string): string | null {
     warnUnreadable(key, err);
     return null;
   }
+}
+
+function security(args: string[], input?: string): string {
+  return execFileSync(SECURITY, args, {
+    input,
+    encoding: "utf8",
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+}
+
+// exit 44 = errSecItemNotFound
+function isNotFound(err: unknown): boolean {
+  return (err as { status?: number }).status === 44;
+}
+
+/**
+ * The item's comment, read from its attributes only, so it never prompts.
+ * undefined = no such item, null = item without a comment.
+ */
+function macComment(key: string): string | null | undefined {
+  let out: string;
+  try {
+    out = security(["find-generic-password", "-s", SERVICE, "-a", key]);
+  } catch (err) {
+    if (isNotFound(err)) return undefined;
+    throw err;
+  }
+  return out.match(/"icmt"<blob>="(.*)"$/m)?.[1] ?? null;
+}
+
+function macWrite(key: string, value: string): void {
+  if (!/^[\w.@:+-]+$/.test(key)) {
+    throw new Error(`unsupported keychain account name: ${key}`);
+  }
+  macDelete(key);
+  // Through `security -i` on stdin so the secret never shows up in argv/ps,
+  // and hex (-X) so no value needs quoting.
+  const hex = Buffer.from(Buffer.from(value, "utf8").toString("base64")).toString("hex");
+  security(
+    ["-i"],
+    `add-generic-password -s ${SERVICE} -a ${key} -j ${MAC_MARKER} -X ${hex}\n`,
+  );
+  // Interactive mode exits 0 even when a command fails, so check the result.
+  if (macComment(key) !== MAC_MARKER) {
+    throw new Error(`failed to save keychain item "${key}"`);
+  }
+}
+
+function macRead(key: string): string | null {
+  const comment = macComment(key);
+  if (comment === undefined) return null;
+  if (comment === MAC_MARKER) {
+    const b64 = security([
+      "find-generic-password",
+      "-s",
+      SERVICE,
+      "-a",
+      key,
+      "-w",
+    ]).trim();
+    return Buffer.from(b64, "base64").toString("utf8");
+  }
+  // A legacy item owned by node: read it through the keyring one last time
+  // (this may prompt) and recreate it under /usr/bin/security.
+  const value = keyringRead(key);
+  if (value != null) macWrite(key, value);
+  return value;
+}
+
+function macDelete(key: string): boolean {
+  const comment = macComment(key);
+  if (comment === undefined) return false;
+  if (comment !== MAC_MARKER) return entry(key).deletePassword();
+  try {
+    security(["delete-generic-password", "-s", SERVICE, "-a", key]);
+    return true;
+  } catch (err) {
+    if (isNotFound(err)) return false;
+    throw err;
+  }
+}
+
+function writeSecret(key: string, value: string): void {
+  if (useSecurityCli) macWrite(key, value);
+  else keyringWrite(key, value);
+}
+
+function readSecret(key: string): string | null {
+  return useSecurityCli ? macRead(key) : keyringRead(key);
+}
+
+function removeSecret(key: string): boolean {
+  return useSecurityCli ? macDelete(key) : entry(key).deletePassword();
 }
 
 export async function setSecret(
@@ -72,7 +177,7 @@ export async function deleteSecret(
   email: string,
 ): Promise<boolean> {
   try {
-    return entry(`${kind}:${email}`).deletePassword();
+    return removeSecret(`${kind}:${email}`);
   } catch {
     return false;
   }
@@ -103,13 +208,10 @@ const ALL_KINDS: SecretKind[] = [
 const ALL_PROVIDERS: ProviderName[] = ["google", "microsoft"];
 
 /**
- * Re-save every readable secret so the keychain item is recreated by the
- * current binary. Items created by a different binary (e.g. an older node)
- * carry ACLs that make macOS re-prompt on every read — even after
- * "Always Allow" — and can be silently unreadable. The creator of an item
- * gets silent access, so delete + recreate migrates ownership and stops
- * the prompts. Unreadable items look absent on macOS and are skipped;
- * re-running `mmm init` / `mmm reauth` recreates those.
+ * Re-save every readable secret. On macOS this moves legacy node-owned items
+ * under /usr/bin/security in one pass (reads already do it one item at a
+ * time), so they stop prompting after node upgrades. Unreadable items are
+ * skipped; re-running `mmm init` / `mmm reauth` recreates those.
  */
 export async function rehomeSecrets(
   emails: string[],
@@ -130,8 +232,7 @@ export async function rehomeSecrets(
       skipped.push(key);
       continue;
     }
-    entry(key).deletePassword();
-    entry(key).setPassword(value);
+    writeSecret(key, value);
     rehomed.push(key);
   }
   return { rehomed, skipped };

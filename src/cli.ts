@@ -318,7 +318,7 @@ program
   .description("Verify each account can connect and fetch INBOX")
   .option(
     "--fix",
-    "re-save readable secrets so keychain items are owned by the current binary (stops repeated macOS permission prompts)",
+    "re-save readable secrets so keychain items move to /usr/bin/security (stops repeated macOS permission prompts)",
   )
   .option("--json", "output JSON")
   .action(async (opts) => {
